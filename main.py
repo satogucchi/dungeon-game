@@ -33,6 +33,39 @@ def create_player():
     return player
 
 
+def create_room():
+    """Создать первую комнату."""
+    room = {
+        "name": "Тёмная пещера",
+        "description": "Вы стоите в тёмной сырой пещере. "
+                       "Со стен капает вода. Где-то вдалеке слышен шум.",
+        "exits": {}
+    }
+    return room
+
+
+def look(room):
+    """Осмотреться в комнате."""
+    print(f"\n=== {room['name']} ===")
+    print(room["description"])
+
+
+def game_loop(player, room):
+    """Основной игровой цикл."""
+    look(room)
+    
+    while True:
+        command = input("\n> ").strip().lower()
+        
+        if command == "look":
+            look(room)
+        elif command == "quit":
+            print("\nДо свидания!")
+            break
+        else:
+            print("Неизвестная команда. Попробуйте 'look' или 'quit'.")
+
+
 def main():
     """Главный цикл игры."""
     while True:
@@ -41,8 +74,8 @@ def main():
 
         if choice == "1":
             player = create_player()
-            print("\n[Игра пока не реализована]")
-            input("Нажмите Enter для продолжения...")
+            room = create_room()
+            game_loop(player, room)
         elif choice == "2":
             print("\nДо свидания!")
             break
@@ -52,3 +85,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
