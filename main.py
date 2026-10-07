@@ -12,36 +12,44 @@ def create_player():
     """Создать нового персонажа."""
     print("\n=== СОЗДАНИЕ ПЕРСОНАЖА ===")
     name = input("Введите имя героя: ").strip()
-    
+
     if not name:
         name = "Безымянный"
-    
+
     player = {
         "name": name,
         "hp": 100,
         "max_hp": 100,
         "attack": 10,
         "level": 1,
-        "experience": 0
+        "experience": 0,
     }
-    
+
     print(f"\nГерой {player['name']} создан!")
     print(f"HP: {player['hp']}/{player['max_hp']}")
     print(f"Атака: {player['attack']}")
     print(f"Уровень: {player['level']}")
-    
+
     return player
 
 
-def create_room():
-    """Создать первую комнату."""
-    room = {
-        "name": "Тёмная пещера",
-        "description": "Вы стоите в тёмной сырой пещере. "
-                       "Со стен капает вода. Где-то вдалеке слышен шум.",
-        "exits": {}
+def create_rooms():
+    """Создать комнаты подземелья."""
+    rooms = {
+        "cave": {
+            "name": "Тёмная пещера",
+            "description": "Вы стоите в тёмной сырой пещере. "
+            "Со стен капает вода. Где-то вдалеке слышен шум.",
+            "exits": {"north": "tunnel"},
+        },
+        "tunnel": {
+            "name": "Узкий тоннель",
+            "description": "Вы в узком каменном тоннеле. "
+            "Стены покрыты мхом. На юг ведёт путь обратно в пещеру.",
+            "exits": {"south": "cave"},
+        },
     }
-    return room
+    return rooms
 
 
 def look(room):
@@ -49,21 +57,43 @@ def look(room):
     print(f"\n=== {room['name']} ===")
     print(room["description"])
 
+    if room["exits"]:
+        exits_str = ", ".join(room["exits"].keys())
+        print(f"\nВыходы: {exits_str}")
 
-def game_loop(player, room):
+
+def move(current_room_name, direction, rooms):
+    """Переместиться в другую комнату."""
+    current_room = rooms[current_room_name]
+
+    if direction in current_room["exits"]:
+        new_room_name = current_room["exits"][direction]
+        return new_room_name
+    else:
+        print(f"\nТуда нельзя пройти на {direction}.")
+        return current_room_name
+
+
+def game_loop(player, rooms, current_room_name):
     """Основной игровой цикл."""
-    look(room)
-    
+    look(rooms[current_room_name])
+
     while True:
         command = input("\n> ").strip().lower()
-        
+
         if command == "look":
-            look(room)
+            look(rooms[current_room_name])
+        elif command.startswith("go "):
+            direction = command[3:].strip()
+            current_room_name = move(current_room_name, direction, rooms)
+            look(rooms[current_room_name])
         elif command == "quit":
             print("\nДо свидания!")
             break
         else:
-            print("Неизвестная команда. Попробуйте 'look' или 'quit'.")
+            print(
+                "Неизвестная команда. Попробуйте 'look', 'go <направление>' или 'quit'."
+            )
 
 
 def main():
@@ -74,8 +104,9 @@ def main():
 
         if choice == "1":
             player = create_player()
-            room = create_room()
-            game_loop(player, room)
+            rooms = create_rooms()
+            current_room_name = "cave"
+            game_loop(player, rooms, current_room_name)
         elif choice == "2":
             print("\nДо свидания!")
             break
@@ -85,4 +116,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
