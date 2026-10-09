@@ -1,10 +1,15 @@
+import json
+import os
+
+
 def show_menu():
     """Показать главное меню."""
     print("=" * 30)
     print("   ПОДЗЕМЕЛЬЕ")
     print("=" * 30)
     print("1. Новая игра")
-    print("2. Выход")
+    print("2. Загрузить игру")
+    print("3. Выход")
     print("=" * 30)
 
 
@@ -53,6 +58,35 @@ def create_rooms():
         }
     }
     return rooms
+
+
+def save_game(player, rooms, current_room_name):
+    """Сохранить игру в файл."""
+    os.makedirs("saves", exist_ok=True)
+    
+    save_data = {
+        "player": player,
+        "rooms": rooms,
+        "current_room": current_room_name
+    }
+    
+    with open("saves/savegame.json", "w", encoding="utf-8") as f:
+        json.dump(save_data, f, ensure_ascii=False, indent=2)
+    
+    print("\n💾 Игра сохранена!")
+
+
+def load_game():
+    """Загрузить игру из файла."""
+    if not os.path.exists("saves/savegame.json"):
+        print("\n❌ Сохранение не найдено!")
+        return None, None, None
+    
+    with open("saves/savegame.json", "r", encoding="utf-8") as f:
+        save_data = json.load(f)
+    
+    print("\n📂 Игра загружена!")
+    return save_data["player"], save_data["rooms"], save_data["current_room"]
 
 
 def look(room):
@@ -118,11 +152,14 @@ def game_loop(player, rooms, current_room_name):
             take(item_name, player, rooms[current_room_name])
         elif command == "inventory" or command == "i":
             show_inventory(player)
+        elif command == "save":
+            save_game(player, rooms, current_room_name)
         elif command == "quit":
+            save_game(player, rooms, current_room_name)
             print("\nДо свидания!")
             break
         else:
-            print("Неизвестная команда. Попробуйте 'look', 'go <направление>', 'take <предмет>', 'inventory' или 'quit'.")
+            print("Неизвестная команда. Попробуйте 'look', 'go <направление>', 'take <предмет>', 'inventory', 'save' или 'quit'.")
 
 
 def main():
@@ -137,6 +174,10 @@ def main():
             current_room_name = "cave"
             game_loop(player, rooms, current_room_name)
         elif choice == "2":
+            player, rooms, current_room_name = load_game()
+            if player:
+                game_loop(player, rooms, current_room_name)
+        elif choice == "3":
             print("\nДо свидания!")
             break
         else:
@@ -145,4 +186,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+
