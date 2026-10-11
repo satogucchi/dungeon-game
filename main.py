@@ -39,6 +39,21 @@ def create_player():
     return player
 
 
+def create_monsters():
+    """Создать шаблоны монстров."""
+    monsters = {
+        "rat": {
+            "name": "Гигантская крыса",
+            "hp": 20,
+            "max_hp": 20,
+            "attack": 5,
+            "experience": 10,
+            "emoji": "🐀"
+        }
+    }
+    return monsters
+
+
 def create_rooms():
     """Создать комнаты подземелья."""
     rooms = {
@@ -47,14 +62,16 @@ def create_rooms():
             "description": "Вы стоите в тёмной сырой пещере. "
                            "Со стен капает вода. Где-то вдалеке слышен шум.",
             "exits": {"north": "tunnel"},
-            "items": ["факел"]
+            "items": ["факел"],
+            "monster": None
         },
         "tunnel": {
             "name": "Узкий тоннель",
             "description": "Вы в узком каменном тоннеле. "
                            "Стены покрыты мхом. На юг ведёт путь обратно в пещеру.",
             "exits": {"south": "cave"},
-            "items": []
+            "items": [],
+            "monster": "rat"
         }
     }
     return rooms
@@ -89,10 +106,15 @@ def load_game():
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
 
-def look(room):
+def look(room, monsters):
     """Осмотреться в комнате."""
     print(f"\n📍 === {room['name']} ===")
     print(room["description"])
+
+    if room["monster"]:
+        monster = monsters[room["monster"]]
+        print(f"\n{monster['emoji']} Здесь находится {monster['name']}! "
+              f"(HP: {monster['hp']}/{monster['max_hp']})")
 
     if room["items"]:
         print(f"\n🎒 Предметы на полу: {', '.join(room['items'])}")
@@ -135,7 +157,7 @@ def show_help():
     print("=" * 30)
 
 
-def move(current_room_name, direction, rooms):
+def move(current_room_name, direction, rooms, monsters):
     """Переместиться в другую комнату."""
     current_room = rooms[current_room_name]
 
@@ -147,19 +169,19 @@ def move(current_room_name, direction, rooms):
         return current_room_name
 
 
-def game_loop(player, rooms, current_room_name):
+def game_loop(player, rooms, monsters, current_room_name):
     """Основной игровой цикл."""
-    look(rooms[current_room_name])
+    look(rooms[current_room_name], monsters)
 
     while True:
         command = input("\n> ").strip().lower()
 
         if command == "look":
-            look(rooms[current_room_name])
+            look(rooms[current_room_name], monsters)
         elif command.startswith("go "):
             direction = command[3:].strip()
-            current_room_name = move(current_room_name, direction, rooms)
-            look(rooms[current_room_name])
+            current_room_name = move(current_room_name, direction, rooms, monsters)
+            look(rooms[current_room_name], monsters)
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
@@ -186,12 +208,14 @@ def main():
         if choice == "1":
             player = create_player()
             rooms = create_rooms()
+            monsters = create_monsters()
             current_room_name = "cave"
-            game_loop(player, rooms, current_room_name)
+            game_loop(player, rooms, monsters, current_room_name)
         elif choice == "2":
             player, rooms, current_room_name = load_game()
             if player:
-                game_loop(player, rooms, current_room_name)
+                monsters = create_monsters()
+                game_loop(player, rooms, monsters, current_room_name)
         elif choice == "3":
             print("\n👋 До свидания!")
             break
