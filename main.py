@@ -1,5 +1,6 @@
 import json
 import os
+import random
 
 
 def show_menu():
@@ -150,11 +151,52 @@ def show_help():
     print("  look          — осмотреться")
     print("  go <напр>     — идти (north/south/east/west)")
     print("  take <предмет> — подобрать предмет")
+    print("  attack / a    — атаковать монстра")
     print("  inventory / i — показать инвентарь")
     print("  save          — сохранить игру")
     print("  help          — показать эту справку")
     print("  quit          — выйти из игры")
     print("=" * 30)
+
+
+def attack(player, room, monsters):
+    """Атаковать монстра в комнате."""
+    if not room["monster"]:
+        print("\n❌ Здесь некого атаковать.")
+        return False
+
+    monster_key = room["monster"]
+    monster = monsters[monster_key]
+
+    # Урон игрока по монстру (с небольшим разбросом)
+    player_damage = random.randint(player["attack"] - 2, player["attack"] + 2)
+    player_damage = max(1, player_damage)
+    monster["hp"] -= player_damage
+    print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона!")
+    print(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}")
+
+    # Проверка смерти монстра
+    if monster["hp"] <= 0:
+        print(f"\n🎉 Вы победили {monster['name']}!")
+        player["experience"] += monster["experience"]
+        print(f"   ⭐ Получено опыта: {monster['experience']}")
+        print(f"   ⭐ Всего опыта: {player['experience']}")
+        room["monster"] = None
+        return True
+
+    # Ответный удар монстра
+    monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
+    monster_damage = max(1, monster_damage)
+    player["hp"] -= monster_damage
+    print(f"\n💥 {monster['name']} атакует вас и наносит {monster_damage} урона!")
+    print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
+
+    # Проверка смерти игрока
+    if player["hp"] <= 0:
+        print("\n💀 Вы погибли...")
+        return "dead"
+
+    return False
 
 
 def move(current_room_name, direction, rooms, monsters):
@@ -185,6 +227,11 @@ def game_loop(player, rooms, monsters, current_room_name):
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
+        elif command in ("attack", "a"):
+            result = attack(player, rooms[current_room_name], monsters)
+            if result == "dead":
+                print("\n👋 Игра окончена.")
+                break
         elif command in ("inventory", "i"):
             show_inventory(player)
         elif command == "save":
