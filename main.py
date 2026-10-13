@@ -40,6 +40,32 @@ def create_player():
     return player
 
 
+def experience_to_next_level(level):
+    """Сколько опыта нужно для следующего уровня."""
+    return level * 20
+
+
+def check_level_up(player):
+    """Проверить и повысить уровень, если хватает опыта."""
+    leveled_up = False
+    while player["experience"] >= experience_to_next_level(player["level"]):
+        player["experience"] -= experience_to_next_level(player["level"])
+        player["level"] += 1
+        player["max_hp"] += 20
+        player["hp"] = player["max_hp"]
+        player["attack"] += 3
+        leveled_up = True
+
+        print("\n" + "🌟" * 15)
+        print(f"   🎊 НОВЫЙ УРОВЕНЬ: {player['level']}! 🎊")
+        print(f"   ❤️  Макс. HP: {player['max_hp']}")
+        print(f"   ⚔️  Атака: {player['attack']}")
+        print(f"   💚 HP полностью восстановлено!")
+        print("🌟" * 15)
+
+    return leveled_up
+
+
 def create_monsters():
     """Создать шаблоны монстров."""
     monsters = {
@@ -50,6 +76,14 @@ def create_monsters():
             "attack": 5,
             "experience": 10,
             "emoji": "🐀"
+        },
+        "spider": {
+            "name": "Пещерный паук",
+            "hp": 35,
+            "max_hp": 35,
+            "attack": 8,
+            "experience": 20,
+            "emoji": "🕷️"
         }
     }
     return monsters
@@ -70,9 +104,17 @@ def create_rooms():
             "name": "Узкий тоннель",
             "description": "Вы в узком каменном тоннеле. "
                            "Стены покрыты мхом. На юг ведёт путь обратно в пещеру.",
-            "exits": {"south": "cave"},
+            "exits": {"south": "cave", "east": "spider_nest"},
             "items": [],
             "monster": "rat"
+        },
+        "spider_nest": {
+            "name": "Паучье гнездо",
+            "description": "Всё вокруг затянуто липкой паутиной. "
+                           "В углу шевелится что-то большое.",
+            "exits": {"west": "tunnel"},
+            "items": [],
+            "monster": "spider"
         }
     }
     return rooms
@@ -145,6 +187,17 @@ def show_inventory(player):
         print("  Пусто")
 
 
+def show_stats(player):
+    """Показать характеристики героя."""
+    needed = experience_to_next_level(player["level"])
+    print("\n📊 === ХАРАКТЕРИСТИКИ ===")
+    print(f"  Имя: {player['name']}")
+    print(f"  ⭐ Уровень: {player['level']}")
+    print(f"  ✨ Опыт: {player['experience']}/{needed}")
+    print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
+    print(f"  ⚔️  Атака: {player['attack']}")
+
+
 def show_help():
     """Показать справку по командам."""
     print("\n❓ === ДОСТУПНЫЕ КОМАНДЫ ===")
@@ -153,6 +206,7 @@ def show_help():
     print("  take <предмет> — подобрать предмет")
     print("  attack / a    — атаковать монстра")
     print("  inventory / i — показать инвентарь")
+    print("  stats         — показать характеристики")
     print("  save          — сохранить игру")
     print("  help          — показать эту справку")
     print("  quit          — выйти из игры")
@@ -180,8 +234,10 @@ def attack(player, room, monsters):
         print(f"\n🎉 Вы победили {monster['name']}!")
         player["experience"] += monster["experience"]
         print(f"   ⭐ Получено опыта: {monster['experience']}")
-        print(f"   ⭐ Всего опыта: {player['experience']}")
+        print(f"   ⭐ Всего опыта: {player['experience']}/"
+              f"{experience_to_next_level(player['level'])}")
         room["monster"] = None
+        check_level_up(player)
         return True
 
     # Ответный удар монстра
@@ -234,6 +290,8 @@ def game_loop(player, rooms, monsters, current_room_name):
                 break
         elif command in ("inventory", "i"):
             show_inventory(player)
+        elif command == "stats":
+            show_stats(player)
         elif command == "save":
             save_game(player, rooms, current_room_name)
         elif command == "help":
