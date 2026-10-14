@@ -67,7 +67,7 @@ def check_level_up(player):
 
 
 def create_monsters():
-    """Создать шаблоны монстров."""
+    """Создать шаблоны монстров с балансом."""
     monsters = {
         "rat": {
             "name": "Гигантская крыса",
@@ -84,37 +84,74 @@ def create_monsters():
             "attack": 8,
             "experience": 20,
             "emoji": "🕷️"
+        },
+        # НОВЫЕ МОНСТРЫ
+        "slime": {
+            "name": "Кислотный слизень",
+            "hp": 45,      # Танк: много HP
+            "max_hp": 45,
+            "attack": 4,   # Слабая атака
+            "experience": 25,
+            "emoji": "🟢"
+        },
+        "goblin": {
+            "name": "Гоблин-разбойник",
+            "hp": 28,      # Быстрый: мало HP
+            "max_hp": 28,
+            "attack": 12,  # Высокая атака
+            "experience": 30,
+            "emoji": "👺"
+        },
+        "skeleton": {
+            "name": "Древний скелет",
+            "hp": 50,      # Средний босс локации
+            "max_hp": 50,
+            "attack": 10,
+            "experience": 45,
+            "emoji": "💀"
         }
     }
     return monsters
 
 
 def create_rooms():
-    """Создать комнаты подземелья."""
+    """Создать комнаты подземелья с новыми локациями."""
     rooms = {
         "cave": {
             "name": "Тёмная пещера",
-            "description": "Вы стоите в тёмной сырой пещере. "
-                           "Со стен капает вода. Где-то вдалеке слышен шум.",
+            "description": "Вы стоите в тёмной сырой пещере. Со стен капает вода.",
             "exits": {"north": "tunnel"},
             "items": ["факел"],
             "monster": None
         },
         "tunnel": {
             "name": "Узкий тоннель",
-            "description": "Вы в узком каменном тоннеле. "
-                           "Стены покрыты мхом. На юг ведёт путь обратно в пещеру.",
-            "exits": {"south": "cave", "east": "spider_nest"},
+            "description": "Стены покрыты мхом. Слышны странные звуки со всех сторон.",
+            "exits": {"south": "cave", "east": "spider_nest", "west": "goblin_camp"},
             "items": [],
             "monster": "rat"
         },
         "spider_nest": {
             "name": "Паучье гнездо",
-            "description": "Всё вокруг затянуто липкой паутиной. "
-                           "В углу шевелится что-то большое.",
-            "exits": {"west": "tunnel"},
+            "description": "Всё затянуто паутиной. В углу колышется липкая масса.",
+            "exits": {"west": "tunnel", "north": "bone_crypt"},
             "items": [],
-            "monster": "spider"
+            "monster": "slime"  # Заменили паука на слизня для разнообразия, паук остался в базе
+        },
+        # НОВЫЕ КОМНАТЫ
+        "goblin_camp": {
+            "name": "Лагерь гоблинов",
+            "description": "Грязная стоянка с остатками еды и сломанным оружием. Воняет.",
+            "exits": {"east": "tunnel"},
+            "items": ["ржавый нож"],
+            "monster": "goblin"
+        },
+        "bone_crypt": {
+            "name": "Костяная крипта",
+            "description": "Холодное помещение, усыпанное костями. В центре стоит саркофаг.",
+            "exits": {"south": "spider_nest"},
+            "items": [],
+            "monster": "skeleton"
         }
     }
     return rooms
@@ -123,16 +160,13 @@ def create_rooms():
 def save_game(player, rooms, current_room_name):
     """Сохранить игру в файл."""
     os.makedirs("saves", exist_ok=True)
-
     save_data = {
         "player": player,
         "rooms": rooms,
         "current_room": current_room_name
     }
-
     with open("saves/savegame.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, ensure_ascii=False, indent=2)
-
     print("\n💾 Игра сохранена!")
 
 
@@ -141,10 +175,8 @@ def load_game():
     if not os.path.exists("saves/savegame.json"):
         print("\n❌ Сохранение не найдено!")
         return None, None, None
-
     with open("saves/savegame.json", "r", encoding="utf-8") as f:
         save_data = json.load(f)
-
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
@@ -222,14 +254,12 @@ def attack(player, room, monsters):
     monster_key = room["monster"]
     monster = monsters[monster_key]
 
-    # Урон игрока по монстру (с небольшим разбросом)
     player_damage = random.randint(player["attack"] - 2, player["attack"] + 2)
     player_damage = max(1, player_damage)
     monster["hp"] -= player_damage
     print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона!")
     print(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}")
 
-    # Проверка смерти монстра
     if monster["hp"] <= 0:
         print(f"\n🎉 Вы победили {monster['name']}!")
         player["experience"] += monster["experience"]
@@ -240,14 +270,12 @@ def attack(player, room, monsters):
         check_level_up(player)
         return True
 
-    # Ответный удар монстра
     monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
     monster_damage = max(1, monster_damage)
     player["hp"] -= monster_damage
     print(f"\n💥 {monster['name']} атакует вас и наносит {monster_damage} урона!")
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
 
-    # Проверка смерти игрока
     if player["hp"] <= 0:
         print("\n💀 Вы погибли...")
         return "dead"
@@ -258,10 +286,8 @@ def attack(player, room, monsters):
 def move(current_room_name, direction, rooms, monsters):
     """Переместиться в другую комнату."""
     current_room = rooms[current_room_name]
-
     if direction in current_room["exits"]:
-        new_room_name = current_room["exits"][direction]
-        return new_room_name
+        return current_room["exits"][direction]
     else:
         print(f"\n❌ Туда нельзя пройти на {direction}.")
         return current_room_name
@@ -320,6 +346,8 @@ def main():
             player, rooms, current_room_name = load_game()
             if player:
                 monsters = create_monsters()
+                # Важно: при загрузке старого сейва новые комнаты могут отсутствовать.
+                # Для безопасности можно было бы делать миграцию, но пока просто используем то, что есть.
                 game_loop(player, rooms, monsters, current_room_name)
         elif choice == "3":
             print("\n👋 До свидания!")
