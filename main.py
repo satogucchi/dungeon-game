@@ -85,26 +85,25 @@ def create_monsters():
             "experience": 20,
             "emoji": "🕷️"
         },
-        # НОВЫЕ МОНСТРЫ
         "slime": {
             "name": "Кислотный слизень",
-            "hp": 45,      # Танк: много HP
+            "hp": 45,
             "max_hp": 45,
-            "attack": 4,   # Слабая атака
+            "attack": 4,
             "experience": 25,
             "emoji": "🟢"
         },
         "goblin": {
             "name": "Гоблин-разбойник",
-            "hp": 28,      # Быстрый: мало HP
+            "hp": 28,
             "max_hp": 28,
-            "attack": 12,  # Высокая атака
+            "attack": 12,
             "experience": 30,
             "emoji": "👺"
         },
         "skeleton": {
             "name": "Древний скелет",
-            "hp": 50,      # Средний босс локации
+            "hp": 50,
             "max_hp": 50,
             "attack": 10,
             "experience": 45,
@@ -136,9 +135,8 @@ def create_rooms():
             "description": "Всё затянуто паутиной. В углу колышется липкая масса.",
             "exits": {"west": "tunnel", "north": "bone_crypt"},
             "items": [],
-            "monster": "slime"  # Заменили паука на слизня для разнообразия, паук остался в базе
+            "monster": "slime"
         },
-        # НОВЫЕ КОМНАТЫ
         "goblin_camp": {
             "name": "Лагерь гоблинов",
             "description": "Грязная стоянка с остатками еды и сломанным оружием. Воняет.",
@@ -254,10 +252,19 @@ def attack(player, room, monsters):
     monster_key = room["monster"]
     monster = monsters[monster_key]
 
-    player_damage = random.randint(player["attack"] - 2, player["attack"] + 2)
-    player_damage = max(1, player_damage)
+    # --- ЛОГИКА КРИТИЧЕСКОГО УДАРА ---
+    is_crit = random.randint(1, 100) <= 15  # 15% шанс крита
+    base_damage = random.randint(player["attack"] - 2, player["attack"] + 2)
+    
+    if is_crit:
+        player_damage = base_damage * 2
+        print(f"\n💥 КРИТИЧЕСКИЙ УДАР! Вы нанесли {player_damage} урона!")
+    else:
+        player_damage = max(1, base_damage)
+        print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона.")
+    # ----------------------------------
+
     monster["hp"] -= player_damage
-    print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона!")
     print(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}")
 
     if monster["hp"] <= 0:
@@ -270,10 +277,11 @@ def attack(player, room, monsters):
         check_level_up(player)
         return True
 
+    # Ответный удар монстра (монстры пока не умеют критовать)
     monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
     monster_damage = max(1, monster_damage)
     player["hp"] -= monster_damage
-    print(f"\n💥 {monster['name']} атакует вас и наносит {monster_damage} урона!")
+    print(f"\n🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
 
     if player["hp"] <= 0:
@@ -346,8 +354,6 @@ def main():
             player, rooms, current_room_name = load_game()
             if player:
                 monsters = create_monsters()
-                # Важно: при загрузке старого сейва новые комнаты могут отсутствовать.
-                # Для безопасности можно было бы делать миграцию, но пока просто используем то, что есть.
                 game_loop(player, rooms, monsters, current_room_name)
         elif choice == "3":
             print("\n👋 До свидания!")
@@ -358,4 +364,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
     
