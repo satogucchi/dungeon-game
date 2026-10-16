@@ -207,6 +207,24 @@ def take(item_name, player, room):
         print(f"\n❌ Здесь нет предмета '{item_name}'.")
 
 
+def use_item(item_name, player):
+    """Использовать предмет из инвентаря."""
+    if item_name not in player["inventory"]:
+        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        return
+
+    if item_name == "зелье здоровья":
+        heal_amount = 30
+        old_hp = player["hp"]
+        player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
+        healed = player["hp"] - old_hp
+        player["inventory"].remove(item_name)
+        print(f"\n💚 Вы выпили зелье и восстановили {healed} HP!")
+        print(f"   ❤️ Текущее HP: {player['hp']}/{player['max_hp']}")
+    else:
+        print(f"\n❓ Предмет '{item_name}' нельзя использовать.")
+
+
 def show_inventory(player):
     """Показать инвентарь."""
     print("\n🎒 === ИНВЕНТАРЬ ===")
@@ -234,6 +252,7 @@ def show_help():
     print("  look          — осмотреться")
     print("  go <напр>     — идти (north/south/east/west)")
     print("  take <предмет> — подобрать предмет")
+    print("  use <предмет>  — использовать предмет")
     print("  attack / a    — атаковать монстра")
     print("  inventory / i — показать инвентарь")
     print("  stats         — показать характеристики")
@@ -273,11 +292,17 @@ def attack(player, room, monsters):
         print(f"   ⭐ Получено опыта: {monster['experience']}")
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
+        
+        # Шанс выпадения зелья (30%)
+        if random.randint(1, 100) <= 30:
+            player["inventory"].append("зелье здоровья")
+            print(f"   🧪 Из монстра выпало зелье здоровья!")
+        
         room["monster"] = None
         check_level_up(player)
         return True
 
-    # Ответный удар монстра (монстры пока не умеют критовать)
+    # Ответный удар монстра
     monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
     monster_damage = max(1, monster_damage)
     player["hp"] -= monster_damage
@@ -317,6 +342,9 @@ def game_loop(player, rooms, monsters, current_room_name):
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
+        elif command.startswith("use "):
+            item_name = command[4:].strip()
+            use_item(item_name, player)
         elif command in ("attack", "a"):
             result = attack(player, rooms[current_room_name], monsters)
             if result == "dead":
