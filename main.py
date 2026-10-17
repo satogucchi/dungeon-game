@@ -254,6 +254,7 @@ def show_help():
     print("  take <предмет> — подобрать предмет")
     print("  use <предмет>  — использовать предмет")
     print("  attack / a    — атаковать монстра")
+    print("  flee          — попытаться сбежать из боя")
     print("  inventory / i — показать инвентарь")
     print("  stats         — показать характеристики")
     print("  save          — сохранить игру")
@@ -316,6 +317,44 @@ def attack(player, room, monsters):
     return False
 
 
+def flee(player, room, rooms, current_room_name):
+    """Попытаться сбежать из боя."""
+    if not room["monster"]:
+        print("\n❌ Здесь некого бежать — монстра нет.")
+        return current_room_name
+
+    monster = monsters[room["monster"]]
+    print(f"\n🏃 Вы пытаетесь сбежать от {monster['name']}...")
+
+    # Шанс побега 50%
+    if random.randint(1, 100) <= 50:
+        print("✅ Побег успешен!")
+        
+        # Выбираем случайную доступную комнату для побега
+        exits = list(room["exits"].keys())
+        if exits:
+            escape_direction = random.choice(exits)
+            new_room_name = room["exits"][escape_direction]
+            print(f"   Вы убегаете в направлении: {escape_direction}")
+            return new_room_name
+        else:
+            print("   ❌ Но вам некуда бежать! Вы заперты.")
+            return current_room_name
+    else:
+        print("❌ Побег не удался!")
+        # Монстр наносит урон в спину (полный урон)
+        backstab_damage = monster["attack"]
+        player["hp"] -= backstab_damage
+        print(f"   💥 {monster['name']} бьёт вас в спину и наносит {backstab_damage} урона!")
+        print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
+        
+        if player["hp"] <= 0:
+            print("\n💀 Вы погибли...")
+            return "dead"
+        
+        return current_room_name
+
+
 def move(current_room_name, direction, rooms, monsters):
     """Переместиться в другую комнату."""
     current_room = rooms[current_room_name]
@@ -350,6 +389,14 @@ def game_loop(player, rooms, monsters, current_room_name):
             if result == "dead":
                 print("\n👋 Игра окончена.")
                 break
+        elif command == "flee":
+            result = flee(player, rooms[current_room_name], rooms, current_room_name)
+            if result == "dead":
+                print("\n👋 Игра окончена.")
+                break
+            elif result != current_room_name:
+                current_room_name = result
+                look(rooms[current_room_name], monsters)
         elif command in ("inventory", "i"):
             show_inventory(player)
         elif command == "stats":
