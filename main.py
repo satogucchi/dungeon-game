@@ -29,8 +29,12 @@ def create_player():
         "attack": 10,
         "level": 1,
         "experience": 0,
-        "gold": 0,  # НОВОЕ: золото
-        "inventory": []
+        "gold": 0,
+        "inventory": [],
+        "equipment": {
+            "weapon": None,
+            "armor": None
+        }
     }
 
     print(f"\n🎉 Герой {player['name']} создан!")
@@ -38,6 +42,7 @@ def create_player():
     print(f"⚔️  Атака: {player['attack']}")
     print(f"⭐ Уровень: {player['level']}")
     print(f"💰 Золото: {player['gold']}")
+    print(f"🛡️  Экипировка: нет")
 
     return player
 
@@ -66,6 +71,28 @@ def check_level_up(player):
         print("🌟" * 15)
 
     return leveled_up
+
+
+def create_items_db():
+    """База данных предметов с характеристиками."""
+    items = {
+        "ржавый нож": {
+            "type": "weapon",
+            "attack_bonus": 3,
+            "description": "Старый нож с зазубринами"
+        },
+        "ржавый меч": {
+            "type": "weapon",
+            "attack_bonus": 5,
+            "description": "Тяжёлый меч, покрытый ржавчиной"
+        },
+        "кожаная броня": {
+            "type": "armor",
+            "defense_bonus": 2,
+            "description": "Простая кожаная куртка"
+        }
+    }
+    return items
 
 
 def create_monsters():
@@ -116,7 +143,8 @@ def create_monsters():
             "emoji": "👺",
             "loot": [
                 {"item": "золото", "amount": 15, "chance": 90},
-                {"item": "ржавый нож", "amount": 1, "chance": 25}
+                {"item": "ржавый нож", "amount": 1, "chance": 25},
+                {"item": "кожаная броня", "amount": 1, "chance": 15}
             ]
         },
         "skeleton": {
@@ -129,7 +157,8 @@ def create_monsters():
             "loot": [
                 {"item": "золото", "amount": 25, "chance": 100},
                 {"item": "кость", "amount": 2, "chance": 50},
-                {"item": "зелье здоровья", "amount": 1, "chance": 30}
+                {"item": "зелье здоровья", "amount": 1, "chance": 30},
+                {"item": "ржавый меч", "amount": 1, "chance": 20}
             ]
         }
     }
@@ -199,9 +228,11 @@ def load_game():
     with open("saves/savegame.json", "r", encoding="utf-8") as f:
         save_data = json.load(f)
     
-    # Миграция старых сейвов: добавляем gold, если его нет
+    # Миграция старых сейвов
     if "gold" not in save_data["player"]:
         save_data["player"]["gold"] = 0
+    if "equipment" not in save_data["player"]:
+        save_data["player"]["equipment"] = {"weapon": None, "armor": None}
     
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
@@ -253,10 +284,43 @@ def use_item(item_name, player):
         print(f"\n❓ Предмет '{item_name}' нельзя использовать.")
 
 
+def equip_item(item_name, player, items_db):
+    """Экипировать предмет."""
+    if item_name not in player["inventory"]:
+        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        return
+    
+    if item_name not in items_db:
+        print(f"\n❓ Предмет '{item_name}' нельзя экипировать.")
+        return
+    
+    item_data = items_db[item_name]
+    item_type = item_data["type"]
+    
+    # Снимаем старую экипировку этого типа (если есть)
+    old_item = player["equipment"][item_type]
+    if old_item:
+        player["inventory"].append(old_item)
+        print(f"   🔄 Снято: {old_item}")
+    
+    # Надеваем новый предмет
+    player["equipment"][item_type] = item_name
+    player["inventory"].remove(item_name)
+    
+    print(f"\n✅ Вы экипировали: {item_name}")
+    if item_type == "weapon":
+        print(f"   ⚔️ +{item_data['attack_bonus']} к атаке")
+    elif item_type == "armor":
+        print(f"   🛡️ +{item_data['defense_bonus']} к защите")
+
+
 def show_inventory(player):
     """Показать инвентарь."""
     print("\n🎒 === ИНВЕНТАРЬ ===")
     print(f"  💰 Золото: {player['gold']}")
+    print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
+    print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
+    print("\n  Предметы:")
     if player["inventory"]:
         for item in player["inventory"]:
             print(f"  • {item}")
@@ -264,16 +328,28 @@ def show_inventory(player):
         print("  Пусто")
 
 
-def show_stats(player):
+def show_stats(player, items_db):
     """Показать характеристики героя."""
     needed = experience_to_next_level(player["level"])
+    
+    # Бонусы от экипировки
+    weapon_bonus = 0
+    armor_bonus = 0
+    if player["equipment"]["weapon"]:
+        weapon_bonus = items_db[player["equipment"]["weapon"]]["attack_bonus"]
+    if player["equipment"]["armor"]:
+        armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+    
     print("\n📊 === ХАРАКТЕРИСТИКИ ===")
     print(f"  Имя: {player['name']}")
     print(f"  ⭐ Уровень: {player['level']}")
     print(f"  ✨ Опыт: {player['experience']}/{needed}")
     print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
-    print(f"  ⚔️  Атака: {player['attack']}")
+    print(f"  ⚔️  Атака: {player['attack']} (+{weapon_bonus} от оружия)")
+    print(f"  🛡️  Защита: {armor_bonus}")
     print(f"  💰 Золото: {player['gold']}")
+    print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
+    print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
 
 
 def show_help():
@@ -283,6 +359,7 @@ def show_help():
     print("  go <напр>     — идти (north/south/east/west)")
     print("  take <предмет> — подобрать предмет")
     print("  use <предмет>  — использовать предмет")
+    print("  equip <предмет> — экипировать оружие/броню")
     print("  attack / a    — атаковать монстра")
     print("  flee          — попытаться сбежать из боя")
     print("  inventory / i — показать инвентарь")
@@ -311,7 +388,7 @@ def drop_loot(monster, player):
                 print(f"   📦 +{loot_entry['amount']}x {loot_entry['item']}")
 
 
-def attack(player, room, monsters):
+def attack(player, room, monsters, items_db):
     """Атаковать монстра в комнате."""
     if not room["monster"]:
         print("\n❌ Здесь некого атаковать.")
@@ -320,9 +397,16 @@ def attack(player, room, monsters):
     monster_key = room["monster"]
     monster = monsters[monster_key]
 
+    # Бонус от оружия
+    weapon_bonus = 0
+    if player["equipment"]["weapon"] and player["equipment"]["weapon"] in items_db:
+        weapon_bonus = items_db[player["equipment"]["weapon"]]["attack_bonus"]
+
+    total_attack = player["attack"] + weapon_bonus
+    
     # --- ЛОГИКА КРИТИЧЕСКОГО УДАРА ---
     is_crit = random.randint(1, 100) <= 15  # 15% шанс крита
-    base_damage = random.randint(player["attack"] - 2, player["attack"] + 2)
+    base_damage = random.randint(total_attack - 2, total_attack + 2)
     
     if is_crit:
         player_damage = base_damage * 2
@@ -411,7 +495,7 @@ def move(current_room_name, direction, rooms, monsters):
         return current_room_name
 
 
-def game_loop(player, rooms, monsters, current_room_name):
+def game_loop(player, rooms, monsters, items_db, current_room_name):
     """Основной игровой цикл."""
     look(rooms[current_room_name], monsters)
 
@@ -430,8 +514,11 @@ def game_loop(player, rooms, monsters, current_room_name):
         elif command.startswith("use "):
             item_name = command[4:].strip()
             use_item(item_name, player)
+        elif command.startswith("equip "):
+            item_name = command[6:].strip()
+            equip_item(item_name, player, items_db)
         elif command in ("attack", "a"):
-            result = attack(player, rooms[current_room_name], monsters)
+            result = attack(player, rooms[current_room_name], monsters, items_db)
             if result == "dead":
                 print("\n👋 Игра окончена.")
                 break
@@ -446,7 +533,7 @@ def game_loop(player, rooms, monsters, current_room_name):
         elif command in ("inventory", "i"):
             show_inventory(player)
         elif command == "stats":
-            show_stats(player)
+            show_stats(player, items_db)
         elif command == "save":
             save_game(player, rooms, current_room_name)
         elif command == "help":
@@ -469,13 +556,15 @@ def main():
             player = create_player()
             rooms = create_rooms()
             monsters = create_monsters()
+            items_db = create_items_db()
             current_room_name = "cave"
-            game_loop(player, rooms, monsters, current_room_name)
+            game_loop(player, rooms, monsters, items_db, current_room_name)
         elif choice == "2":
             player, rooms, current_room_name = load_game()
             if player:
                 monsters = create_monsters()
-                game_loop(player, rooms, monsters, current_room_name)
+                items_db = create_items_db()
+                game_loop(player, rooms, monsters, items_db, current_room_name)
         elif choice == "3":
             print("\n👋 До свидания!")
             break
@@ -485,5 +574,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
     
