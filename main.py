@@ -29,6 +29,7 @@ def create_player():
         "attack": 10,
         "level": 1,
         "experience": 0,
+        "gold": 0,  # НОВОЕ: золото
         "inventory": []
     }
 
@@ -36,6 +37,7 @@ def create_player():
     print(f"❤️  HP: {player['hp']}/{player['max_hp']}")
     print(f"⚔️  Атака: {player['attack']}")
     print(f"⭐ Уровень: {player['level']}")
+    print(f"💰 Золото: {player['gold']}")
 
     return player
 
@@ -67,7 +69,7 @@ def check_level_up(player):
 
 
 def create_monsters():
-    """Создать шаблоны монстров с балансом."""
+    """Создать шаблоны монстров с балансом и лутом."""
     monsters = {
         "rat": {
             "name": "Гигантская крыса",
@@ -75,7 +77,11 @@ def create_monsters():
             "max_hp": 20,
             "attack": 5,
             "experience": 10,
-            "emoji": "🐀"
+            "emoji": "🐀",
+            "loot": [
+                {"item": "золото", "amount": 5, "chance": 70},
+                {"item": "кость", "amount": 1, "chance": 30}
+            ]
         },
         "spider": {
             "name": "Пещерный паук",
@@ -83,7 +89,11 @@ def create_monsters():
             "max_hp": 35,
             "attack": 8,
             "experience": 20,
-            "emoji": "🕷️"
+            "emoji": "🕷️",
+            "loot": [
+                {"item": "золото", "amount": 10, "chance": 60},
+                {"item": "паутина", "amount": 1, "chance": 40}
+            ]
         },
         "slime": {
             "name": "Кислотный слизень",
@@ -91,7 +101,11 @@ def create_monsters():
             "max_hp": 45,
             "attack": 4,
             "experience": 25,
-            "emoji": "🟢"
+            "emoji": "🟢",
+            "loot": [
+                {"item": "золото", "amount": 8, "chance": 80},
+                {"item": "зелье здоровья", "amount": 1, "chance": 20}
+            ]
         },
         "goblin": {
             "name": "Гоблин-разбойник",
@@ -99,7 +113,11 @@ def create_monsters():
             "max_hp": 28,
             "attack": 12,
             "experience": 30,
-            "emoji": "👺"
+            "emoji": "👺",
+            "loot": [
+                {"item": "золото", "amount": 15, "chance": 90},
+                {"item": "ржавый нож", "amount": 1, "chance": 25}
+            ]
         },
         "skeleton": {
             "name": "Древний скелет",
@@ -107,7 +125,12 @@ def create_monsters():
             "max_hp": 50,
             "attack": 10,
             "experience": 45,
-            "emoji": "💀"
+            "emoji": "💀",
+            "loot": [
+                {"item": "золото", "amount": 25, "chance": 100},
+                {"item": "кость", "amount": 2, "chance": 50},
+                {"item": "зелье здоровья", "amount": 1, "chance": 30}
+            ]
         }
     }
     return monsters
@@ -175,6 +198,11 @@ def load_game():
         return None, None, None
     with open("saves/savegame.json", "r", encoding="utf-8") as f:
         save_data = json.load(f)
+    
+    # Миграция старых сейвов: добавляем gold, если его нет
+    if "gold" not in save_data["player"]:
+        save_data["player"]["gold"] = 0
+    
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
@@ -228,6 +256,7 @@ def use_item(item_name, player):
 def show_inventory(player):
     """Показать инвентарь."""
     print("\n🎒 === ИНВЕНТАРЬ ===")
+    print(f"  💰 Золото: {player['gold']}")
     if player["inventory"]:
         for item in player["inventory"]:
             print(f"  • {item}")
@@ -244,6 +273,7 @@ def show_stats(player):
     print(f"  ✨ Опыт: {player['experience']}/{needed}")
     print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
     print(f"  ⚔️  Атака: {player['attack']}")
+    print(f"  💰 Золото: {player['gold']}")
 
 
 def show_help():
@@ -261,6 +291,24 @@ def show_help():
     print("  help          — показать эту справку")
     print("  quit          — выйти из игры")
     print("=" * 30)
+
+
+def drop_loot(monster, player):
+    """Выдать лут с монстра."""
+    if "loot" not in monster:
+        return
+    
+    print("\n🎁 Лут:")
+    for loot_entry in monster["loot"]:
+        if random.randint(1, 100) <= loot_entry["chance"]:
+            if loot_entry["item"] == "золото":
+                player["gold"] += loot_entry["amount"]
+                print(f"   💰 +{loot_entry['amount']} золота")
+            else:
+                # Для предметов добавляем несколько копий, если amount > 1
+                for _ in range(loot_entry["amount"]):
+                    player["inventory"].append(loot_entry["item"])
+                print(f"   📦 +{loot_entry['amount']}x {loot_entry['item']}")
 
 
 def attack(player, room, monsters):
@@ -294,10 +342,8 @@ def attack(player, room, monsters):
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
         
-        # Шанс выпадения зелья (30%)
-        if random.randint(1, 100) <= 30:
-            player["inventory"].append("зелье здоровья")
-            print(f"   🧪 Из монстра выпало зелье здоровья!")
+        # Выдаём лут
+        drop_loot(monster, player)
         
         room["monster"] = None
         check_level_up(player)
@@ -317,7 +363,7 @@ def attack(player, room, monsters):
     return False
 
 
-def flee(player, room, rooms, current_room_name):
+def flee(player, room, rooms, monsters, current_room_name):
     """Попытаться сбежать из боя."""
     if not room["monster"]:
         print("\n❌ Здесь некого бежать — монстра нет.")
@@ -390,7 +436,7 @@ def game_loop(player, rooms, monsters, current_room_name):
                 print("\n👋 Игра окончена.")
                 break
         elif command == "flee":
-            result = flee(player, rooms[current_room_name], rooms, current_room_name)
+            result = flee(player, rooms[current_room_name], rooms, monsters, current_room_name)
             if result == "dead":
                 print("\n👋 Игра окончена.")
                 break
