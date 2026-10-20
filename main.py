@@ -79,17 +79,26 @@ def create_items_db():
         "ржавый нож": {
             "type": "weapon",
             "attack_bonus": 3,
-            "description": "Старый нож с зазубринами"
+            "description": "Старый нож с зазубринами",
+            "price": 20
         },
         "ржавый меч": {
             "type": "weapon",
             "attack_bonus": 5,
-            "description": "Тяжёлый меч, покрытый ржавчиной"
+            "description": "Тяжёлый меч, покрытый ржавчиной",
+            "price": 40
         },
         "кожаная броня": {
             "type": "armor",
             "defense_bonus": 2,
-            "description": "Простая кожаная куртка"
+            "description": "Простая кожаная куртка",
+            "price": 30
+        },
+        "зелье здоровья": {
+            "type": "consumable",
+            "heal_amount": 30,
+            "description": "Восстанавливает 30 HP",
+            "price": 15
         }
     }
     return items
@@ -173,38 +182,64 @@ def create_rooms():
             "description": "Вы стоите в тёмной сырой пещере. Со стен капает вода.",
             "exits": {"north": "tunnel"},
             "items": ["факел"],
-            "monster": None
+            "monster": None,
+            "npc": None
         },
         "tunnel": {
             "name": "Узкий тоннель",
             "description": "Стены покрыты мхом. Слышны странные звуки со всех сторон.",
-            "exits": {"south": "cave", "east": "spider_nest", "west": "goblin_camp"},
+            "exits": {"south": "cave", "east": "spider_nest", "west": "goblin_camp", "north": "merchant_room"},
             "items": [],
-            "monster": "rat"
+            "monster": "rat",
+            "npc": None
         },
         "spider_nest": {
             "name": "Паучье гнездо",
             "description": "Всё затянуто паутиной. В углу колышется липкая масса.",
             "exits": {"west": "tunnel", "north": "bone_crypt"},
             "items": [],
-            "monster": "slime"
+            "monster": "slime",
+            "npc": None
         },
         "goblin_camp": {
             "name": "Лагерь гоблинов",
             "description": "Грязная стоянка с остатками еды и сломанным оружием. Воняет.",
             "exits": {"east": "tunnel"},
             "items": ["ржавый нож"],
-            "monster": "goblin"
+            "monster": "goblin",
+            "npc": None
         },
         "bone_crypt": {
             "name": "Костяная крипта",
             "description": "Холодное помещение, усыпанное костями. В центре стоит саркофаг.",
             "exits": {"south": "spider_nest"},
             "items": [],
-            "monster": "skeleton"
+            "monster": "skeleton",
+            "npc": None
+        },
+        "merchant_room": {
+            "name": "Лавка торговца",
+            "description": "Маленькая комната с прилавком. За ним стоит пожилой торговец.",
+            "exits": {"south": "tunnel"},
+            "items": [],
+            "monster": None,
+            "npc": "merchant"
         }
     }
     return rooms
+
+
+def create_npcs():
+    """Создать NPC."""
+    npcs = {
+        "merchant": {
+            "name": "Торговец Гаррет",
+            "emoji": "🧙",
+            "dialogue": "Приветствую, путник! У меня есть товары, которые могут тебе пригодиться.",
+            "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч"]
+        }
+    }
+    return npcs
 
 
 def save_game(player, rooms, current_room_name):
@@ -234,11 +269,16 @@ def load_game():
     if "equipment" not in save_data["player"]:
         save_data["player"]["equipment"] = {"weapon": None, "armor": None}
     
+    # Миграция комнат: добавляем поле npc, если его нет
+    for room_key in save_data["rooms"]:
+        if "npc" not in save_data["rooms"][room_key]:
+            save_data["rooms"][room_key]["npc"] = None
+    
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
 
-def look(room, monsters):
+def look(room, monsters, npcs):
     """Осмотреться в комнате."""
     print(f"\n📍 === {room['name']} ===")
     print(room["description"])
@@ -247,6 +287,11 @@ def look(room, monsters):
         monster = monsters[room["monster"]]
         print(f"\n{monster['emoji']} Здесь находится {monster['name']}! "
               f"(HP: {monster['hp']}/{monster['max_hp']})")
+
+    if room.get("npc"):
+        npc = npcs[room["npc"]]
+        print(f"\n{npc['emoji']} Здесь находится {npc['name']}.")
+        print(f"   💬 \"{npc['dialogue']}\"")
 
     if room["items"]:
         print(f"\n🎒 Предметы на полу: {', '.join(room['items'])}")
@@ -314,6 +359,49 @@ def equip_item(item_name, player, items_db):
         print(f"   🛡️ +{item_data['defense_bonus']} к защите")
 
 
+def show_shop(npc, items_db, player):
+    """Показать магазин торговца."""
+    print(f"\n🏪 === МАГАЗИН {npc['name'].upper()} ===")
+    print(f"💰 Ваше золото: {player['gold']}\n")
+    
+    for item_name in npc["shop"]:
+        if item_name in items_db:
+            item = items_db[item_name]
+            price = item.get("price", 0)
+            print(f"  • {item_name} — {price} золота")
+            if item["type"] == "weapon":
+                print(f"    ⚔️ +{item['attack_bonus']} к атаке")
+            elif item["type"] == "armor":
+                print(f"    🛡️ +{item['defense_bonus']} к защите")
+            elif item["type"] == "consumable":
+                print(f"    💚 Восстанавливает {item['heal_amount']} HP")
+    
+    print("\n  Команда: buy <предмет>")
+
+
+def buy_item(item_name, player, npc, items_db):
+    """Купить предмет у торговца."""
+    if item_name not in npc["shop"]:
+        print(f"\n❌ Торговец не продаёт '{item_name}'.")
+        return
+    
+    if item_name not in items_db:
+        print(f"\n❌ Предмет '{item_name}' не найден в базе.")
+        return
+    
+    item = items_db[item_name]
+    price = item.get("price", 0)
+    
+    if player["gold"] < price:
+        print(f"\n❌ Недостаточно золота! Нужно {price}, у вас {player['gold']}.")
+        return
+    
+    player["gold"] -= price
+    player["inventory"].append(item_name)
+    print(f"\n✅ Вы купили {item_name} за {price} золота!")
+    print(f"   💰 Осталось золота: {player['gold']}")
+
+
 def show_inventory(player):
     """Показать инвентарь."""
     print("\n🎒 === ИНВЕНТАРЬ ===")
@@ -362,6 +450,8 @@ def show_help():
     print("  equip <предмет> — экипировать оружие/броню")
     print("  attack / a    — атаковать монстра")
     print("  flee          — попытаться сбежать из боя")
+    print("  shop          — показать магазин (у торговца)")
+    print("  buy <предмет> — купить предмет")
     print("  inventory / i — показать инвентарь")
     print("  stats         — показать характеристики")
     print("  save          — сохранить игру")
@@ -512,19 +602,19 @@ def move(current_room_name, direction, rooms, monsters):
         return current_room_name
 
 
-def game_loop(player, rooms, monsters, items_db, current_room_name):
+def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
     """Основной игровой цикл."""
-    look(rooms[current_room_name], monsters)
+    look(rooms[current_room_name], monsters, npcs)
 
     while True:
         command = input("\n> ").strip().lower()
 
         if command == "look":
-            look(rooms[current_room_name], monsters)
+            look(rooms[current_room_name], monsters, npcs)
         elif command.startswith("go "):
             direction = command[3:].strip()
             current_room_name = move(current_room_name, direction, rooms, monsters)
-            look(rooms[current_room_name], monsters)
+            look(rooms[current_room_name], monsters, npcs)
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
@@ -546,7 +636,28 @@ def game_loop(player, rooms, monsters, items_db, current_room_name):
                 break
             elif result != current_room_name:
                 current_room_name = result
-                look(rooms[current_room_name], monsters)
+                look(rooms[current_room_name], monsters, npcs)
+        elif command == "shop":
+            room = rooms[current_room_name]
+            if room.get("npc") and room["npc"] in npcs:
+                npc = npcs[room["npc"]]
+                if "shop" in npc:
+                    show_shop(npc, items_db, player)
+                else:
+                    print("\n❌ У этого NPC нет магазина.")
+            else:
+                print("\n❌ Здесь нет торговца.")
+        elif command.startswith("buy "):
+            item_name = command[4:].strip()
+            room = rooms[current_room_name]
+            if room.get("npc") and room["npc"] in npcs:
+                npc = npcs[room["npc"]]
+                if "shop" in npc:
+                    buy_item(item_name, player, npc, items_db)
+                else:
+                    print("\n❌ У этого NPC нет магазина.")
+            else:
+                print("\n❌ Здесь нет торговца.")
         elif command in ("inventory", "i"):
             show_inventory(player)
         elif command == "stats":
@@ -574,14 +685,16 @@ def main():
             rooms = create_rooms()
             monsters = create_monsters()
             items_db = create_items_db()
+            npcs = create_npcs()
             current_room_name = "cave"
-            game_loop(player, rooms, monsters, items_db, current_room_name)
+            game_loop(player, rooms, monsters, items_db, npcs, current_room_name)
         elif choice == "2":
             player, rooms, current_room_name = load_game()
             if player:
                 monsters = create_monsters()
                 items_db = create_items_db()
-                game_loop(player, rooms, monsters, items_db, current_room_name)
+                npcs = create_npcs()
+                game_loop(player, rooms, monsters, items_db, npcs, current_room_name)
         elif choice == "3":
             print("\n👋 До свидания!")
             break
