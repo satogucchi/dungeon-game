@@ -433,12 +433,21 @@ def attack(player, room, monsters, items_db):
         check_level_up(player)
         return True
 
-    # Ответный удар монстра
-    monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
-    monster_damage = max(1, monster_damage)
+    # --- ОТВЕТНЫЙ УДАР МОНСТРА С УЧЁТОМ БРОНИ ---
+    armor_bonus = 0
+    if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
+        armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+
+    raw_monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
+    monster_damage = max(1, raw_monster_damage - armor_bonus)  # Броня снижает урон, но минимум 1
+    
     player["hp"] -= monster_damage
-    print(f"\n🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
+    
+    if armor_bonus > 0:
+        print(f"\n🛡️ Броня поглотила {raw_monster_damage - monster_damage} урона!")
+    print(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
+    # -------------------------------------------
 
     if player["hp"] <= 0:
         print("\n💀 Вы погибли...")
@@ -472,9 +481,17 @@ def flee(player, room, rooms, monsters, current_room_name):
             return current_room_name
     else:
         print("❌ Побег не удался!")
-        # Монстр наносит урон в спину (полный урон)
-        backstab_damage = monster["attack"]
+        
+        # Урон в спину тоже снижается броней
+        armor_bonus = 0
+        if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
+            armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+        
+        backstab_damage = max(1, monster["attack"] - armor_bonus)
         player["hp"] -= backstab_damage
+        
+        if armor_bonus > 0:
+            print(f"   🛡️ Броня поглотила часть урона!")
         print(f"   💥 {monster['name']} бьёт вас в спину и наносит {backstab_damage} урона!")
         print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
         
