@@ -456,7 +456,7 @@ def attack(player, room, monsters, items_db):
     return False
 
 
-def flee(player, room, rooms, monsters, current_room_name):
+def flee(player, room, rooms, monsters, items_db, current_room_name):
     """Попытаться сбежать из боя."""
     if not room["monster"]:
         print("\n❌ Здесь некого бежать — монстра нет.")
@@ -540,7 +540,7 @@ def game_loop(player, rooms, monsters, items_db, current_room_name):
                 print("\n👋 Игра окончена.")
                 break
         elif command == "flee":
-            result = flee(player, rooms[current_room_name], rooms, monsters, current_room_name)
+            result = flee(player, rooms[current_room_name], rooms, monsters, items_db, current_room_name)
             if result == "dead":
                 print("\n👋 Игра окончена.")
                 break
