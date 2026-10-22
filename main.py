@@ -80,25 +80,44 @@ def create_items_db():
             "type": "weapon",
             "attack_bonus": 3,
             "description": "Старый нож с зазубринами",
-            "price": 20
+            "price": 20,
+            "sell_price": 8
         },
         "ржавый меч": {
             "type": "weapon",
             "attack_bonus": 5,
             "description": "Тяжёлый меч, покрытый ржавчиной",
-            "price": 40
+            "price": 40,
+            "sell_price": 15
         },
         "кожаная броня": {
             "type": "armor",
             "defense_bonus": 2,
             "description": "Простая кожаная куртка",
-            "price": 30
+            "price": 30,
+            "sell_price": 12
         },
         "зелье здоровья": {
             "type": "consumable",
             "heal_amount": 30,
             "description": "Восстанавливает 30 HP",
-            "price": 15
+            "price": 15,
+            "sell_price": 5
+        },
+        "кость": {
+            "type": "junk",
+            "description": "Обычная кость",
+            "sell_price": 2
+        },
+        "паутина": {
+            "type": "junk",
+            "description": "Липкая паутина",
+            "sell_price": 3
+        },
+        "факел": {
+            "type": "junk",
+            "description": "Горящий факел",
+            "sell_price": 1
         }
     }
     return items
@@ -235,7 +254,7 @@ def create_npcs():
         "merchant": {
             "name": "Торговец Гаррет",
             "emoji": "🧙",
-            "dialogue": "Приветствую, путник! У меня есть товары, которые могут тебе пригодиться.",
+            "dialogue": "Приветствую, путник! Я покупаю и продаю товары.",
             "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч"]
         }
     }
@@ -364,6 +383,7 @@ def show_shop(npc, items_db, player):
     print(f"\n🏪 === МАГАЗИН {npc['name'].upper()} ===")
     print(f"💰 Ваше золото: {player['gold']}\n")
     
+    print("  📦 ПОКУПКА:")
     for item_name in npc["shop"]:
         if item_name in items_db:
             item = items_db[item_name]
@@ -376,7 +396,21 @@ def show_shop(npc, items_db, player):
             elif item["type"] == "consumable":
                 print(f"    💚 Восстанавливает {item['heal_amount']} HP")
     
-    print("\n  Команда: buy <предмет>")
+    print("\n  💸 ПРОДАЖА (ваши предметы):")
+    sellable_items = {}
+    for item_name in player["inventory"]:
+        if item_name in items_db and "sell_price" in items_db[item_name]:
+            if item_name not in sellable_items:
+                sellable_items[item_name] = {"count": 0, "price": items_db[item_name]["sell_price"]}
+            sellable_items[item_name]["count"] += 1
+    
+    if sellable_items:
+        for item_name, data in sellable_items.items():
+            print(f"  • {item_name} x{data['count']} — {data['price']} золота за шт.")
+    else:
+        print("  Нет предметов для продажи.")
+    
+    print("\n  Команды: buy <предмет>, sell <предмет>")
 
 
 def buy_item(item_name, player, npc, items_db):
@@ -400,6 +434,24 @@ def buy_item(item_name, player, npc, items_db):
     player["inventory"].append(item_name)
     print(f"\n✅ Вы купили {item_name} за {price} золота!")
     print(f"   💰 Осталось золота: {player['gold']}")
+
+
+def sell_item(item_name, player, npc, items_db):
+    """Продать предмет торговцу."""
+    if item_name not in player["inventory"]:
+        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        return
+    
+    if item_name not in items_db or "sell_price" not in items_db[item_name]:
+        print(f"\n❌ Торговец не покупает '{item_name}'.")
+        return
+    
+    sell_price = items_db[item_name]["sell_price"]
+    player["inventory"].remove(item_name)
+    player["gold"] += sell_price
+    
+    print(f"\n✅ Вы продали {item_name} за {sell_price} золота!")
+    print(f"   💰 Теперь у вас: {player['gold']} золота")
 
 
 def show_inventory(player):
@@ -452,6 +504,7 @@ def show_help():
     print("  flee          — попытаться сбежать из боя")
     print("  shop          — показать магазин (у торговца)")
     print("  buy <предмет> — купить предмет")
+    print("  sell <предмет> — продать предмет")
     print("  inventory / i — показать инвентарь")
     print("  stats         — показать характеристики")
     print("  save          — сохранить игру")
@@ -656,6 +709,14 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
                     buy_item(item_name, player, npc, items_db)
                 else:
                     print("\n❌ У этого NPC нет магазина.")
+            else:
+                print("\n❌ Здесь нет торговца.")
+        elif command.startswith("sell "):
+            item_name = command[5:].strip()
+            room = rooms[current_room_name]
+            if room.get("npc") and room["npc"] in npcs:
+                npc = npcs[room["npc"]]
+                sell_item(item_name, player, npc, items_db)
             else:
                 print("\n❌ Здесь нет торговца.")
         elif command in ("inventory", "i"):
