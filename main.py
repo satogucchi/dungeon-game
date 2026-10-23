@@ -27,6 +27,7 @@ def create_player():
         "hp": 100,
         "max_hp": 100,
         "attack": 10,
+        "defense": 0,  # НОВОЕ: базовая защита
         "level": 1,
         "experience": 0,
         "gold": 0,
@@ -40,6 +41,7 @@ def create_player():
     print(f"\n🎉 Герой {player['name']} создан!")
     print(f"❤️  HP: {player['hp']}/{player['max_hp']}")
     print(f"⚔️  Атака: {player['attack']}")
+    print(f"🛡️  Защита: {player['defense']}")
     print(f"⭐ Уровень: {player['level']}")
     print(f"💰 Золото: {player['gold']}")
     print(f"🛡️  Экипировка: нет")
@@ -61,12 +63,14 @@ def check_level_up(player):
         player["max_hp"] += 20
         player["hp"] = player["max_hp"]
         player["attack"] += 3
+        player["defense"] += 1  # НОВОЕ: +1 защита за уровень
         leveled_up = True
 
         print("\n" + "🌟" * 15)
         print(f"   🎊 НОВЫЙ УРОВЕНЬ: {player['level']}! 🎊")
         print(f"   ❤️  Макс. HP: {player['max_hp']}")
         print(f"   ⚔️  Атака: {player['attack']}")
+        print(f"   🛡️  Защита: {player['defense']}")
         print(f"   💚 HP полностью восстановлено!")
         print("🌟" * 15)
 
@@ -287,6 +291,8 @@ def load_game():
         save_data["player"]["gold"] = 0
     if "equipment" not in save_data["player"]:
         save_data["player"]["equipment"] = {"weapon": None, "armor": None}
+    if "defense" not in save_data["player"]:  # НОВОЕ
+        save_data["player"]["defense"] = 0
     
     # Миграция комнат: добавляем поле npc, если его нет
     for room_key in save_data["rooms"]:
@@ -480,13 +486,16 @@ def show_stats(player, items_db):
     if player["equipment"]["armor"]:
         armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
     
+    total_attack = player["attack"] + weapon_bonus
+    total_defense = player["defense"] + armor_bonus  # НОВОЕ: общая защита
+    
     print("\n📊 === ХАРАКТЕРИСТИКИ ===")
     print(f"  Имя: {player['name']}")
     print(f"  ⭐ Уровень: {player['level']}")
     print(f"  ✨ Опыт: {player['experience']}/{needed}")
     print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
-    print(f"  ⚔️  Атака: {player['attack']} (+{weapon_bonus} от оружия)")
-    print(f"  🛡️  Защита: {armor_bonus}")
+    print(f"  ⚔️  Атака: {total_attack} ({player['attack']} + {weapon_bonus})")
+    print(f"  🛡️  Защита: {total_defense} ({player['defense']} + {armor_bonus})")
     print(f"  💰 Золото: {player['gold']}")
     print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
     print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
@@ -581,13 +590,17 @@ def attack(player, room, monsters, items_db):
     if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
         armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
 
+    total_defense = player["defense"] + armor_bonus  # НОВОЕ: общая защита
+
     raw_monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
-    monster_damage = max(1, raw_monster_damage - armor_bonus)  # Броня снижает урон, но минимум 1
+    monster_damage = max(1, raw_monster_damage - total_defense)  # Защита снижает урон
     
     player["hp"] -= monster_damage
     
-    if armor_bonus > 0:
-        print(f"\n🛡️ Броня поглотила {raw_monster_damage - monster_damage} урона!")
+    if total_defense > 0:
+        absorbed = raw_monster_damage - monster_damage
+        if absorbed > 0:
+            print(f"\n🛡️ Защита поглотила {absorbed} урона!")
     print(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
     # -------------------------------------------
@@ -625,16 +638,18 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
     else:
         print("❌ Побег не удался!")
         
-        # Урон в спину тоже снижается броней
+        # Урон в спину тоже снижается защитой
         armor_bonus = 0
         if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
             armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
         
-        backstab_damage = max(1, monster["attack"] - armor_bonus)
+        total_defense = player["defense"] + armor_bonus  # НОВОЕ
+        
+        backstab_damage = max(1, monster["attack"] - total_defense)
         player["hp"] -= backstab_damage
         
-        if armor_bonus > 0:
-            print(f"   🛡️ Броня поглотила часть урона!")
+        if total_defense > 0:
+            print(f"   🛡️ Защита поглотила часть урона!")
         print(f"   💥 {monster['name']} бьёт вас в спину и наносит {backstab_damage} урона!")
         print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
         
@@ -765,4 +780,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
