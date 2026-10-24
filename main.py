@@ -27,7 +27,7 @@ def create_player():
         "hp": 100,
         "max_hp": 100,
         "attack": 10,
-        "defense": 0,  # НОВОЕ: базовая защита
+        "defense": 0,
         "level": 1,
         "experience": 0,
         "gold": 0,
@@ -63,7 +63,7 @@ def check_level_up(player):
         player["max_hp"] += 20
         player["hp"] = player["max_hp"]
         player["attack"] += 3
-        player["defense"] += 1  # НОВОЕ: +1 защита за уровень
+        player["defense"] += 1
         leveled_up = True
 
         print("\n" + "🌟" * 15)
@@ -163,7 +163,7 @@ def create_monsters():
             "emoji": "🟢",
             "loot": [
                 {"item": "золото", "amount": 8, "chance": 80},
-                {"item": "зелье здоровья", "amount": 1, "chance": 20}
+                {"item": "зелье здоровья", "amount": 1, "chance": 40}  # Увеличен шанс
             ]
         },
         "goblin": {
@@ -176,7 +176,8 @@ def create_monsters():
             "loot": [
                 {"item": "золото", "amount": 15, "chance": 90},
                 {"item": "ржавый нож", "amount": 1, "chance": 25},
-                {"item": "кожаная броня", "amount": 1, "chance": 15}
+                {"item": "кожаная броня", "amount": 1, "chance": 15},
+                {"item": "зелье здоровья", "amount": 1, "chance": 40}  # НОВОЕ
             ]
         },
         "skeleton": {
@@ -189,7 +190,7 @@ def create_monsters():
             "loot": [
                 {"item": "золото", "amount": 25, "chance": 100},
                 {"item": "кость", "amount": 2, "chance": 50},
-                {"item": "зелье здоровья", "amount": 1, "chance": 30},
+                {"item": "зелье здоровья", "amount": 1, "chance": 40},  # Увеличен шанс
                 {"item": "ржавый меч", "amount": 1, "chance": 20}
             ]
         }
@@ -291,7 +292,7 @@ def load_game():
         save_data["player"]["gold"] = 0
     if "equipment" not in save_data["player"]:
         save_data["player"]["equipment"] = {"weapon": None, "armor": None}
-    if "defense" not in save_data["player"]:  # НОВОЕ
+    if "defense" not in save_data["player"]:
         save_data["player"]["defense"] = 0
     
     # Миграция комнат: добавляем поле npc, если его нет
@@ -334,6 +335,17 @@ def take(item_name, player, room):
         print(f"\n✅ Вы подобрали: {item_name}")
     else:
         print(f"\n❌ Здесь нет предмета '{item_name}'.")
+
+
+def drop_item(item_name, player, room):
+    """Выбросить предмет из инвентаря."""
+    if item_name not in player["inventory"]:
+        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        return
+    
+    player["inventory"].remove(item_name)
+    room["items"].append(item_name)
+    print(f"\n🗑️ Вы выбросили: {item_name}")
 
 
 def use_item(item_name, player):
@@ -444,6 +456,10 @@ def buy_item(item_name, player, npc, items_db):
 
 def sell_item(item_name, player, npc, items_db):
     """Продать предмет торговцу."""
+    if not player["inventory"]:
+        print("\n❌ Ваш инвентарь пуст.")
+        return
+    
     if item_name not in player["inventory"]:
         print(f"\n❌ У вас нет предмета '{item_name}'.")
         return
@@ -487,7 +503,7 @@ def show_stats(player, items_db):
         armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
     
     total_attack = player["attack"] + weapon_bonus
-    total_defense = player["defense"] + armor_bonus  # НОВОЕ: общая защита
+    total_defense = player["defense"] + armor_bonus
     
     print("\n📊 === ХАРАКТЕРИСТИКИ ===")
     print(f"  Имя: {player['name']}")
@@ -507,6 +523,7 @@ def show_help():
     print("  look          — осмотреться")
     print("  go <напр>     — идти (north/south/east/west)")
     print("  take <предмет> — подобрать предмет")
+    print("  drop <предмет> — выбросить предмет")
     print("  use <предмет>  — использовать предмет")
     print("  equip <предмет> — экипировать оружие/броню")
     print("  attack / a    — атаковать монстра")
@@ -527,17 +544,25 @@ def drop_loot(monster, player):
     if "loot" not in monster:
         return
     
-    print("\n🎁 Лут:")
+    total_gold = 0
+    items_dropped = []
+    
     for loot_entry in monster["loot"]:
         if random.randint(1, 100) <= loot_entry["chance"]:
             if loot_entry["item"] == "золото":
                 player["gold"] += loot_entry["amount"]
-                print(f"   💰 +{loot_entry['amount']} золота")
+                total_gold += loot_entry["amount"]
             else:
-                # Для предметов добавляем несколько копий, если amount > 1
                 for _ in range(loot_entry["amount"]):
                     player["inventory"].append(loot_entry["item"])
-                print(f"   📦 +{loot_entry['amount']}x {loot_entry['item']}")
+                    items_dropped.append(loot_entry["item"])
+    
+    if total_gold > 0 or items_dropped:
+        print("\n🎁 Лут:")
+        if total_gold > 0:
+            print(f"   💰 +{total_gold} золота")
+        for item in items_dropped:
+            print(f"   📦 +1x {item}")
 
 
 def attack(player, room, monsters, items_db):
@@ -557,7 +582,7 @@ def attack(player, room, monsters, items_db):
     total_attack = player["attack"] + weapon_bonus
     
     # --- ЛОГИКА КРИТИЧЕСКОГО УДАРА ---
-    is_crit = random.randint(1, 100) <= 15  # 15% шанс крита
+    is_crit = random.randint(1, 100) <= 15
     base_damage = random.randint(total_attack - 2, total_attack + 2)
     
     if is_crit:
@@ -585,15 +610,15 @@ def attack(player, room, monsters, items_db):
         check_level_up(player)
         return True
 
-    # --- ОТВЕТНЫЙ УДАР МОНСТРА С УЧЁТОМ БРОНИ ---
+    # --- ОТВЕТНЫЙ УДАР МОНСТРА С УЧЁТОМ ЗАЩИТЫ ---
     armor_bonus = 0
     if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
         armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
 
-    total_defense = player["defense"] + armor_bonus  # НОВОЕ: общая защита
+    total_defense = player["defense"] + armor_bonus
 
     raw_monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
-    monster_damage = max(1, raw_monster_damage - total_defense)  # Защита снижает урон
+    monster_damage = max(1, raw_monster_damage - total_defense)
     
     player["hp"] -= monster_damage
     
@@ -621,11 +646,9 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
     monster = monsters[room["monster"]]
     print(f"\n🏃 Вы пытаетесь сбежать от {monster['name']}...")
 
-    # Шанс побега 50%
     if random.randint(1, 100) <= 50:
         print("✅ Побег успешен!")
         
-        # Выбираем случайную доступную комнату для побега
         exits = list(room["exits"].keys())
         if exits:
             escape_direction = random.choice(exits)
@@ -638,12 +661,11 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
     else:
         print("❌ Побег не удался!")
         
-        # Урон в спину тоже снижается защитой
         armor_bonus = 0
         if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
             armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
         
-        total_defense = player["defense"] + armor_bonus  # НОВОЕ
+        total_defense = player["defense"] + armor_bonus
         
         backstab_damage = max(1, monster["attack"] - total_defense)
         player["hp"] -= backstab_damage
@@ -686,6 +708,9 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
+        elif command.startswith("drop "):
+            item_name = command[5:].strip()
+            drop_item(item_name, player, rooms[current_room_name])
         elif command.startswith("use "):
             item_name = command[4:].strip()
             use_item(item_name, player)
@@ -780,3 +805,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
