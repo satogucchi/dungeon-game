@@ -163,7 +163,7 @@ def create_monsters():
             "emoji": "🟢",
             "loot": [
                 {"item": "золото", "amount": 8, "chance": 80},
-                {"item": "зелье здоровья", "amount": 1, "chance": 40}  # Увеличен шанс
+                {"item": "зелье здоровья", "amount": 1, "chance": 40}
             ]
         },
         "goblin": {
@@ -177,7 +177,7 @@ def create_monsters():
                 {"item": "золото", "amount": 15, "chance": 90},
                 {"item": "ржавый нож", "amount": 1, "chance": 25},
                 {"item": "кожаная броня", "amount": 1, "chance": 15},
-                {"item": "зелье здоровья", "amount": 1, "chance": 40}  # НОВОЕ
+                {"item": "зелье здоровья", "amount": 1, "chance": 40}
             ]
         },
         "skeleton": {
@@ -190,7 +190,7 @@ def create_monsters():
             "loot": [
                 {"item": "золото", "amount": 25, "chance": 100},
                 {"item": "кость", "amount": 2, "chance": 50},
-                {"item": "зелье здоровья", "amount": 1, "chance": 40},  # Увеличен шанс
+                {"item": "зелье здоровья", "amount": 1, "chance": 40},
                 {"item": "ржавый меч", "amount": 1, "chance": 20}
             ]
         }
@@ -394,6 +394,60 @@ def equip_item(item_name, player, items_db):
         print(f"   ⚔️ +{item_data['attack_bonus']} к атаке")
     elif item_type == "armor":
         print(f"   🛡️ +{item_data['defense_bonus']} к защите")
+
+
+def trigger_random_event(player):
+    """Случайное событие при переходе (10% шанс)."""
+    if random.randint(1, 100) > 10:
+        return  # 90% — ничего не происходит
+    
+    event_roll = random.randint(1, 100)
+    
+    print("\n" + "✨" * 20)
+    
+    if event_roll <= 25:
+        # Находка золота
+        gold_found = random.randint(5, 15)
+        player["gold"] += gold_found
+        print(f"💰 Вы нашли {gold_found} золота на полу!")
+    
+    elif event_roll <= 45:
+        # Ловушка
+        trap_damage = random.randint(3, 8)
+        player["hp"] -= trap_damage
+        print(f"⚠️ Вы наступили на ловушку и получили {trap_damage} урона!")
+        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+        
+        if player["hp"] <= 0:
+            print("\n💀 Вы погибли от ловушки...")
+            return "dead"
+    
+    elif event_roll <= 65:
+        # Тайник с зельем
+        player["inventory"].append("зелье здоровья")
+        print("🧪 Вы нашли тайник с зельем здоровья!")
+    
+    elif event_roll <= 80:
+        # Благословение
+        heal_amount = random.randint(10, 20)
+        old_hp = player["hp"]
+        player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
+        healed = player["hp"] - old_hp
+        print(f"✨ Таинственная сила исцелила вас на {healed} HP!")
+        print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
+    
+    else:
+        # Ничего особенного
+        messages = [
+            "Вы слышите странный шум вдалеке...",
+            "Капля воды падает вам на голову.",
+            "Вы чувствуете чей-то взгляд на спине...",
+            "Стены словно шепчут что-то..."
+        ]
+        print(f"🌫️ {random.choice(messages)}")
+    
+    print("✨" * 20)
+    return None
 
 
 def show_shop(npc, items_db, player):
@@ -682,11 +736,18 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
         return current_room_name
 
 
-def move(current_room_name, direction, rooms, monsters):
+def move(current_room_name, direction, rooms, monsters, player):
     """Переместиться в другую комнату."""
     current_room = rooms[current_room_name]
     if direction in current_room["exits"]:
-        return current_room["exits"][direction]
+        new_room_name = current_room["exits"][direction]
+        
+        # Проверяем случайное событие при переходе
+        event_result = trigger_random_event(player)
+        if event_result == "dead":
+            return "dead"
+        
+        return new_room_name
     else:
         print(f"\n❌ Туда нельзя пройти на {direction}.")
         return current_room_name
@@ -703,7 +764,13 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             look(rooms[current_room_name], monsters, npcs)
         elif command.startswith("go "):
             direction = command[3:].strip()
-            current_room_name = move(current_room_name, direction, rooms, monsters)
+            result = move(current_room_name, direction, rooms, monsters, player)
+            
+            if result == "dead":
+                print("\n👋 Игра окончена.")
+                break
+            
+            current_room_name = result
             look(rooms[current_room_name], monsters, npcs)
         elif command.startswith("take "):
             item_name = command[5:].strip()
