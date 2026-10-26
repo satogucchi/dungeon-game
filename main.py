@@ -379,13 +379,11 @@ def equip_item(item_name, player, items_db):
     item_data = items_db[item_name]
     item_type = item_data["type"]
     
-    # Снимаем старую экипировку этого типа (если есть)
     old_item = player["equipment"][item_type]
     if old_item:
         player["inventory"].append(old_item)
         print(f"   🔄 Снято: {old_item}")
     
-    # Надеваем новый предмет
     player["equipment"][item_type] = item_name
     player["inventory"].remove(item_name)
     
@@ -396,23 +394,73 @@ def equip_item(item_name, player, items_db):
         print(f"   🛡️ +{item_data['defense_bonus']} к защите")
 
 
+def rest(player, room, monsters, items_db):
+    """Отдохнуть и восстановить HP."""
+    if room["monster"]:
+        monster = monsters[room["monster"]]
+        print(f"\n❌ Нельзя отдыхать! {monster['name']} рядом!")
+        return False
+    
+    if player["hp"] >= player["max_hp"]:
+        print("\n❌ Вы полностью здоровы, отдых не нужен.")
+        return False
+    
+    print("\n😴 Вы присели отдохнуть...")
+    
+    # 30% шанс атаки во время отдыха
+    if random.randint(1, 100) <= 30:
+        print("⚠️ Вас кто-то потревожил!")
+        # Случайный урон от неизвестного врага
+        damage = random.randint(3, 7)
+        
+        # Защита работает
+        armor_bonus = 0
+        if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
+            armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+        total_defense = player["defense"] + armor_bonus
+        
+        actual_damage = max(1, damage - total_defense)
+        player["hp"] -= actual_damage
+        
+        if total_defense > 0:
+            absorbed = damage - actual_damage
+            if absorbed > 0:
+                print(f"   🛡️ Защита поглотила {absorbed} урона!")
+        print(f"   💥 Вы получили {actual_damage} урона!")
+        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+        
+        if player["hp"] <= 0:
+            print("\n💀 Вы погибли во время отдыха...")
+            return "dead"
+        
+        return False
+    
+    # Успешный отдых
+    heal_amount = random.randint(15, 25)
+    old_hp = player["hp"]
+    player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
+    healed = player["hp"] - old_hp
+    
+    print(f"💚 Вы отдохнули и восстановили {healed} HP!")
+    print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
+    return True
+
+
 def trigger_random_event(player):
     """Случайное событие при переходе (10% шанс)."""
     if random.randint(1, 100) > 10:
-        return  # 90% — ничего не происходит
+        return
     
     event_roll = random.randint(1, 100)
     
     print("\n" + "✨" * 20)
     
     if event_roll <= 25:
-        # Находка золота
         gold_found = random.randint(5, 15)
         player["gold"] += gold_found
         print(f"💰 Вы нашли {gold_found} золота на полу!")
     
     elif event_roll <= 45:
-        # Ловушка
         trap_damage = random.randint(3, 8)
         player["hp"] -= trap_damage
         print(f"⚠️ Вы наступили на ловушку и получили {trap_damage} урона!")
@@ -423,12 +471,10 @@ def trigger_random_event(player):
             return "dead"
     
     elif event_roll <= 65:
-        # Тайник с зельем
         player["inventory"].append("зелье здоровья")
         print("🧪 Вы нашли тайник с зельем здоровья!")
     
     elif event_roll <= 80:
-        # Благословение
         heal_amount = random.randint(10, 20)
         old_hp = player["hp"]
         player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
@@ -437,7 +483,6 @@ def trigger_random_event(player):
         print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
     
     else:
-        # Ничего особенного
         messages = [
             "Вы слышите странный шум вдалеке...",
             "Капля воды падает вам на голову.",
@@ -548,7 +593,6 @@ def show_stats(player, items_db):
     """Показать характеристики героя."""
     needed = experience_to_next_level(player["level"])
     
-    # Бонусы от экипировки
     weapon_bonus = 0
     armor_bonus = 0
     if player["equipment"]["weapon"]:
@@ -582,6 +626,7 @@ def show_help():
     print("  equip <предмет> — экипировать оружие/броню")
     print("  attack / a    — атаковать монстра")
     print("  flee          — попытаться сбежать из боя")
+    print("  rest          — отдохнуть (восстановить HP)")
     print("  shop          — показать магазин (у торговца)")
     print("  buy <предмет> — купить предмет")
     print("  sell <предмет> — продать предмет")
@@ -628,14 +673,12 @@ def attack(player, room, monsters, items_db):
     monster_key = room["monster"]
     monster = monsters[monster_key]
 
-    # Бонус от оружия
     weapon_bonus = 0
     if player["equipment"]["weapon"] and player["equipment"]["weapon"] in items_db:
         weapon_bonus = items_db[player["equipment"]["weapon"]]["attack_bonus"]
 
     total_attack = player["attack"] + weapon_bonus
     
-    # --- ЛОГИКА КРИТИЧЕСКОГО УДАРА ---
     is_crit = random.randint(1, 100) <= 15
     base_damage = random.randint(total_attack - 2, total_attack + 2)
     
@@ -645,7 +688,6 @@ def attack(player, room, monsters, items_db):
     else:
         player_damage = max(1, base_damage)
         print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона.")
-    # ----------------------------------
 
     monster["hp"] -= player_damage
     print(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}")
@@ -657,14 +699,12 @@ def attack(player, room, monsters, items_db):
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
         
-        # Выдаём лут
         drop_loot(monster, player)
         
         room["monster"] = None
         check_level_up(player)
         return True
 
-    # --- ОТВЕТНЫЙ УДАР МОНСТРА С УЧЁТОМ ЗАЩИТЫ ---
     armor_bonus = 0
     if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
         armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
@@ -682,7 +722,6 @@ def attack(player, room, monsters, items_db):
             print(f"\n🛡️ Защита поглотила {absorbed} урона!")
     print(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
-    # -------------------------------------------
 
     if player["hp"] <= 0:
         print("\n💀 Вы погибли...")
@@ -742,7 +781,6 @@ def move(current_room_name, direction, rooms, monsters, player):
     if direction in current_room["exits"]:
         new_room_name = current_room["exits"][direction]
         
-        # Проверяем случайное событие при переходе
         event_result = trigger_random_event(player)
         if event_result == "dead":
             return "dead"
@@ -784,6 +822,11 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         elif command.startswith("equip "):
             item_name = command[6:].strip()
             equip_item(item_name, player, items_db)
+        elif command == "rest":
+            result = rest(player, rooms[current_room_name], monsters, items_db)
+            if result == "dead":
+                print("\n👋 Игра окончена.")
+                break
         elif command in ("attack", "a"):
             result = attack(player, rooms[current_room_name], monsters, items_db)
             if result == "dead":
