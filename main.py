@@ -44,7 +44,9 @@ def create_player():
     print(f"🛡️  Защита: {player['defense']}")
     print(f"⭐ Уровень: {player['level']}")
     print(f"💰 Золото: {player['gold']}")
-    print(f"🛡️  Экипировка: нет")
+    
+    print("\n💡 Подсказка: используйте 'go north' чтобы начать путешествие!")
+    print("   Введите 'help' для списка всех команд.")
 
     return player
 
@@ -304,7 +306,7 @@ def load_game():
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
 
-def look(room, monsters, npcs):
+def look(room, monsters, npcs, player):
     """Осмотреться в комнате."""
     print(f"\n📍 === {room['name']} ===")
     print(room["description"])
@@ -325,6 +327,12 @@ def look(room, monsters, npcs):
     if room["exits"]:
         exits_str = ", ".join(room["exits"].keys())
         print(f"🚪 Выходы: {exits_str}")
+    
+    # Индикатор низкого HP
+    hp_percent = (player["hp"] / player["max_hp"]) * 100
+    if hp_percent <= 30:
+        print(f"\n⚠️ ВНИМАНИЕ: Низкий уровень HP ({player['hp']}/{player['max_hp']})!")
+        print("   Используйте 'use зелье здоровья' или 'rest' для восстановления.")
 
 
 def take(item_name, player, room):
@@ -410,10 +418,8 @@ def rest(player, room, monsters, items_db):
     # 30% шанс атаки во время отдыха
     if random.randint(1, 100) <= 30:
         print("⚠️ Вас кто-то потревожил!")
-        # Случайный урон от неизвестного врага
         damage = random.randint(3, 7)
         
-        # Защита работает
         armor_bonus = 0
         if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
             armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
@@ -618,23 +624,34 @@ def show_stats(player, items_db):
 def show_help():
     """Показать справку по командам."""
     print("\n❓ === ДОСТУПНЫЕ КОМАНДЫ ===")
-    print("  look          — осмотреться")
-    print("  go <напр>     — идти (north/south/east/west)")
-    print("  take <предмет> — подобрать предмет")
-    print("  drop <предмет> — выбросить предмет")
-    print("  use <предмет>  — использовать предмет")
-    print("  equip <предмет> — экипировать оружие/броню")
-    print("  attack / a    — атаковать монстра")
-    print("  flee          — попытаться сбежать из боя")
-    print("  rest          — отдохнуть (восстановить HP)")
-    print("  shop          — показать магазин (у торговца)")
-    print("  buy <предмет> — купить предмет")
-    print("  sell <предмет> — продать предмет")
-    print("  inventory / i — показать инвентарь")
-    print("  stats         — показать характеристики")
-    print("  save          — сохранить игру")
-    print("  help          — показать эту справку")
-    print("  quit          — выйти из игры")
+    print("\n  🚶 ПЕРЕМЕЩЕНИЕ:")
+    print("    look          — осмотреться")
+    print("    go <напр>     — идти (north/south/east/west)")
+    
+    print("\n  🎒 ПРЕДМЕТЫ:")
+    print("    take <предмет> — подобрать предмет")
+    print("    drop <предмет> — выбросить предмет")
+    print("    use <предмет>  — использовать предмет")
+    print("    equip <предмет> — экипировать оружие/броню")
+    print("    inventory / i — показать инвентарь")
+    
+    print("\n  ⚔️ БОЙ:")
+    print("    attack / a    — атаковать монстра")
+    print("    flee          — попытаться сбежать из боя")
+    print("    rest          — отдохнуть (восстановить HP)")
+    
+    print("\n  🏪 ТОРГОВЛЯ:")
+    print("    shop          — показать магазин (у торговца)")
+    print("    buy <предмет> — купить предмет")
+    print("    sell <предмет> — продать предмет")
+    
+    print("\n  📊 ИНФОРМАЦИЯ:")
+    print("    stats         — показать характеристики")
+    print("    help          — показать эту справку")
+    
+    print("\n  💾 СИСТЕМА:")
+    print("    save          — сохранить игру")
+    print("    quit          — выйти из игры")
     print("=" * 30)
 
 
@@ -793,13 +810,13 @@ def move(current_room_name, direction, rooms, monsters, player):
 
 def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
     """Основной игровой цикл."""
-    look(rooms[current_room_name], monsters, npcs)
+    look(rooms[current_room_name], monsters, npcs, player)
 
     while True:
         command = input("\n> ").strip().lower()
 
         if command == "look":
-            look(rooms[current_room_name], monsters, npcs)
+            look(rooms[current_room_name], monsters, npcs, player)
         elif command.startswith("go "):
             direction = command[3:].strip()
             result = move(current_room_name, direction, rooms, monsters, player)
@@ -809,7 +826,7 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
                 break
             
             current_room_name = result
-            look(rooms[current_room_name], monsters, npcs)
+            look(rooms[current_room_name], monsters, npcs, player)
         elif command.startswith("take "):
             item_name = command[5:].strip()
             take(item_name, player, rooms[current_room_name])
@@ -839,7 +856,7 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
                 break
             elif result != current_room_name:
                 current_room_name = result
-                look(rooms[current_room_name], monsters, npcs)
+                look(rooms[current_room_name], monsters, npcs, player)
         elif command == "shop":
             room = rooms[current_room_name]
             if room.get("npc") and room["npc"] in npcs:
