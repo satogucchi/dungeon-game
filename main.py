@@ -31,6 +31,7 @@ def create_player():
         "level": 1,
         "experience": 0,
         "gold": 0,
+        "kills": 0,  # НОВОЕ: счётчик убийств
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -296,6 +297,8 @@ def load_game():
         save_data["player"]["equipment"] = {"weapon": None, "armor": None}
     if "defense" not in save_data["player"]:
         save_data["player"]["defense"] = 0
+    if "kills" not in save_data["player"]:  # НОВОЕ
+        save_data["player"]["kills"] = 0
     
     # Миграция комнат: добавляем поле npc, если его нет
     for room_key in save_data["rooms"]:
@@ -415,7 +418,6 @@ def rest(player, room, monsters, items_db):
     
     print("\n😴 Вы присели отдохнуть...")
     
-    # 30% шанс атаки во время отдыха
     if random.randint(1, 100) <= 30:
         print("⚠️ Вас кто-то потревожил!")
         damage = random.randint(3, 7)
@@ -441,7 +443,6 @@ def rest(player, room, monsters, items_db):
         
         return False
     
-    # Успешный отдых
     heal_amount = random.randint(15, 25)
     old_hp = player["hp"]
     player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
@@ -617,6 +618,7 @@ def show_stats(player, items_db):
     print(f"  ⚔️  Атака: {total_attack} ({player['attack']} + {weapon_bonus})")
     print(f"  🛡️  Защита: {total_defense} ({player['defense']} + {armor_bonus})")
     print(f"  💰 Золото: {player['gold']}")
+    print(f"  💀 Убийств: {player['kills']}")
     print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
     print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
 
@@ -650,9 +652,38 @@ def show_help():
     print("    help          — показать эту справку")
     
     print("\n  💾 СИСТЕМА:")
+    print("    clear / cls   — очистить экран")
     print("    save          — сохранить игру")
     print("    quit          — выйти из игры")
     print("=" * 30)
+
+
+def clear_screen():
+    """Очистить экран."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("🧹 Экран очищен.")
+
+
+def show_death_stats(player):
+    """Показать статистику при смерти."""
+    print("\n" + "💀" * 20)
+    print("   ВЫ ПОГИБЛИ В ПОДЗЕМЕЛЬЕ")
+    print("💀" * 20)
+    print(f"\n📊 СТАТИСТИКА ЗА СЕССИЮ:")
+    print(f"  Имя: {player['name']}")
+    print(f"  Уровень: {player['level']}")
+    print(f"  Убито монстров: {player['kills']}")
+    print(f"  Собрано золота: {player['gold']}")
+    print(f"  Финальный HP: {player['hp']}/{player['max_hp']}")
+    print("\n👋 Спасибо за игру!")
+
+
+def show_quit_stats(player):
+    """Показать статистику при выходе."""
+    print(f"\n📊 КРАТКАЯ СТАТИСТИКА:")
+    print(f"  Уровень: {player['level']}")
+    print(f"  Убито монстров: {player['kills']}")
+    print(f"  Золото: {player['gold']}")
 
 
 def drop_loot(monster, player):
@@ -712,6 +743,7 @@ def attack(player, room, monsters, items_db):
     if monster["hp"] <= 0:
         print(f"\n🎉 Вы победили {monster['name']}!")
         player["experience"] += monster["experience"]
+        player["kills"] += 1  # НОВОЕ: увеличиваем счётчик
         print(f"   ⭐ Получено опыта: {monster['experience']}")
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
@@ -741,7 +773,6 @@ def attack(player, room, monsters, items_db):
     print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
 
     if player["hp"] <= 0:
-        print("\n💀 Вы погибли...")
         return "dead"
 
     return False
@@ -786,7 +817,6 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
         print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
         
         if player["hp"] <= 0:
-            print("\n💀 Вы погибли...")
             return "dead"
         
         return current_room_name
@@ -822,7 +852,7 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             result = move(current_room_name, direction, rooms, monsters, player)
             
             if result == "dead":
-                print("\n👋 Игра окончена.")
+                show_death_stats(player)
                 break
             
             current_room_name = result
@@ -842,17 +872,17 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         elif command == "rest":
             result = rest(player, rooms[current_room_name], monsters, items_db)
             if result == "dead":
-                print("\n👋 Игра окончена.")
+                show_death_stats(player)
                 break
         elif command in ("attack", "a"):
             result = attack(player, rooms[current_room_name], monsters, items_db)
             if result == "dead":
-                print("\n👋 Игра окончена.")
+                show_death_stats(player)
                 break
         elif command == "flee":
             result = flee(player, rooms[current_room_name], rooms, monsters, items_db, current_room_name)
             if result == "dead":
-                print("\n👋 Игра окончена.")
+                show_death_stats(player)
                 break
             elif result != current_room_name:
                 current_room_name = result
@@ -890,12 +920,15 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             show_inventory(player)
         elif command == "stats":
             show_stats(player, items_db)
+        elif command in ("clear", "cls"):
+            clear_screen()
         elif command == "save":
             save_game(player, rooms, current_room_name)
         elif command == "help":
             show_help()
         elif command == "quit":
             save_game(player, rooms, current_room_name)
+            show_quit_stats(player)
             print("\n👋 До свидания!")
             break
         else:
