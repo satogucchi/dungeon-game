@@ -31,7 +31,7 @@ def create_player():
         "level": 1,
         "experience": 0,
         "gold": 0,
-        "kills": 0,  # НОВОЕ: счётчик убийств
+        "kills": 0,
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -125,6 +125,24 @@ def create_items_db():
             "type": "junk",
             "description": "Горящий факел",
             "sell_price": 1
+        },
+        # НОВЫЕ ПРЕДМЕТЫ
+        "железный ключ": {
+            "type": "key",
+            "description": "Старый железный ключ",
+            "sell_price": 10
+        },
+        "золотая корона": {
+            "type": "treasure",
+            "description": "Древняя корона, усыпанная камнями",
+            "sell_price": 100
+        },
+        "щит стражника": {
+            "type": "armor",
+            "defense_bonus": 4,
+            "description": "Прочный щит с гербом",
+            "price": 60,
+            "sell_price": 25
         }
     }
     return items
@@ -223,7 +241,7 @@ def create_rooms():
         "spider_nest": {
             "name": "Паучье гнездо",
             "description": "Всё затянуто паутиной. В углу колышется липкая масса.",
-            "exits": {"west": "tunnel", "north": "bone_crypt"},
+            "exits": {"west": "tunnel", "north": "bone_crypt", "south": "dark_lake"},
             "items": [],
             "monster": "slime",
             "npc": None
@@ -231,7 +249,7 @@ def create_rooms():
         "goblin_camp": {
             "name": "Лагерь гоблинов",
             "description": "Грязная стоянка с остатками еды и сломанным оружием. Воняет.",
-            "exits": {"east": "tunnel"},
+            "exits": {"east": "tunnel", "south": "armory"},
             "items": ["ржавый нож"],
             "monster": "goblin",
             "npc": None
@@ -239,7 +257,7 @@ def create_rooms():
         "bone_crypt": {
             "name": "Костяная крипта",
             "description": "Холодное помещение, усыпанное костями. В центре стоит саркофаг.",
-            "exits": {"south": "spider_nest"},
+            "exits": {"south": "spider_nest", "north": "throne_room"},
             "items": [],
             "monster": "skeleton",
             "npc": None
@@ -251,6 +269,32 @@ def create_rooms():
             "items": [],
             "monster": None,
             "npc": "merchant"
+        },
+        # НОВЫЕ КОМНАТЫ
+        "dark_lake": {
+            "name": "Тёмное озеро",
+            "description": "Подземное озеро с чёрной водой. От воды веет холодом и опасностью.",
+            "exits": {"north": "spider_nest"},
+            "items": ["железный ключ"],
+            "monster": None,
+            "npc": None
+        },
+        "armory": {
+            "name": "Оружейная",
+            "description": "Заброшенная оружейная. На стенах висят ржавые доспехи и сломанное оружие.",
+            "exits": {"north": "goblin_camp"},
+            "items": ["щит стражника"],
+            "monster": None,
+            "npc": None
+        },
+        "throne_room": {
+            "name": "Тронный зал",
+            "description": "Величественный зал с троном из костей. Здесь пахнет древней магией.",
+            "exits": {"south": "bone_crypt"},
+            "items": ["золотая корона"],
+            "monster": None,
+            "npc": None,
+            "locked": True  # Подготовка к будущей механике замков
         }
     }
     return rooms
@@ -263,7 +307,7 @@ def create_npcs():
             "name": "Торговец Гаррет",
             "emoji": "🧙",
             "dialogue": "Приветствую, путник! Я покупаю и продаю товары.",
-            "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч"]
+            "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч", "щит стражника"]
         }
     }
     return npcs
@@ -297,13 +341,21 @@ def load_game():
         save_data["player"]["equipment"] = {"weapon": None, "armor": None}
     if "defense" not in save_data["player"]:
         save_data["player"]["defense"] = 0
-    if "kills" not in save_data["player"]:  # НОВОЕ
+    if "kills" not in save_data["player"]:
         save_data["player"]["kills"] = 0
     
     # Миграция комнат: добавляем поле npc, если его нет
     for room_key in save_data["rooms"]:
         if "npc" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["npc"] = None
+        if "locked" not in save_data["rooms"][room_key]:  # НОВОЕ
+            save_data["rooms"][room_key]["locked"] = False
+    
+    # Добавляем новые комнаты, если их нет в старом сейве
+    new_rooms = create_rooms()
+    for room_key, room_data in new_rooms.items():
+        if room_key not in save_data["rooms"]:
+            save_data["rooms"][room_key] = room_data
     
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
@@ -313,6 +365,9 @@ def look(room, monsters, npcs, player):
     """Осмотреться в комнате."""
     print(f"\n📍 === {room['name']} ===")
     print(room["description"])
+
+    if room.get("locked"):
+        print("\n🔒 Эта комната заперта! Нужен ключ.")
 
     if room["monster"]:
         monster = monsters[room["monster"]]
@@ -743,7 +798,7 @@ def attack(player, room, monsters, items_db):
     if monster["hp"] <= 0:
         print(f"\n🎉 Вы победили {monster['name']}!")
         player["experience"] += monster["experience"]
-        player["kills"] += 1  # НОВОЕ: увеличиваем счётчик
+        player["kills"] += 1
         print(f"   ⭐ Получено опыта: {monster['experience']}")
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
@@ -827,6 +882,17 @@ def move(current_room_name, direction, rooms, monsters, player):
     current_room = rooms[current_room_name]
     if direction in current_room["exits"]:
         new_room_name = current_room["exits"][direction]
+        new_room = rooms[new_room_name]
+        
+        # Проверка на запертую дверь
+        if new_room.get("locked"):
+            if "железный ключ" in player["inventory"]:
+                print("\n🔑 Вы использовали железный ключ и открыли дверь!")
+                player["inventory"].remove("железный ключ")
+                new_room["locked"] = False
+            else:
+                print("\n🔒 Дверь заперта! Нужен железный ключ.")
+                return current_room_name
         
         event_result = trigger_random_event(player)
         if event_result == "dead":
@@ -965,4 +1031,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
