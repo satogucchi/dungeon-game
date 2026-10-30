@@ -36,7 +36,8 @@ def create_player():
         "equipment": {
             "weapon": None,
             "armor": None
-        }
+        },
+        "quests": {}  # НОВОЕ: активные квесты
     }
 
     print(f"\n🎉 Герой {player['name']} создан!")
@@ -104,6 +105,13 @@ def create_items_db():
             "price": 30,
             "sell_price": 12
         },
+        "щит стражника": {
+            "type": "armor",
+            "defense_bonus": 4,
+            "description": "Прочный щит с гербом",
+            "price": 60,
+            "sell_price": 25
+        },
         "зелье здоровья": {
             "type": "consumable",
             "heal_amount": 30,
@@ -126,7 +134,6 @@ def create_items_db():
             "description": "Горящий факел",
             "sell_price": 1
         },
-        # НОВЫЕ ПРЕДМЕТЫ
         "железный ключ": {
             "type": "key",
             "description": "Старый железный ключ",
@@ -136,13 +143,6 @@ def create_items_db():
             "type": "treasure",
             "description": "Древняя корона, усыпанная камнями",
             "sell_price": 100
-        },
-        "щит стражника": {
-            "type": "armor",
-            "defense_bonus": 4,
-            "description": "Прочный щит с гербом",
-            "price": 60,
-            "sell_price": 25
         }
     }
     return items
@@ -270,7 +270,6 @@ def create_rooms():
             "monster": None,
             "npc": "merchant"
         },
-        # НОВЫЕ КОМНАТЫ
         "dark_lake": {
             "name": "Тёмное озеро",
             "description": "Подземное озеро с чёрной водой. От воды веет холодом и опасностью.",
@@ -294,20 +293,32 @@ def create_rooms():
             "items": ["золотая корона"],
             "monster": None,
             "npc": None,
-            "locked": True  # Подготовка к будущей механике замков
+            "locked": True
         }
     }
     return rooms
 
 
 def create_npcs():
-    """Создать NPC."""
+    """Создать NPC с квестами."""
     npcs = {
         "merchant": {
             "name": "Торговец Гаррет",
             "emoji": "🧙",
             "dialogue": "Приветствую, путник! Я покупаю и продаю товары.",
-            "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч", "щит стражника"]
+            "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч", "щит стражника"],
+            "quests": {
+                "rat_hunter": {
+                    "name": "Охотник на крыс",
+                    "description": "Крысы в тоннеле мешают мне спать. Убей 3 гигантских крыс.",
+                    "target": "rat",
+                    "count": 3,
+                    "reward_gold": 50,
+                    "reward_exp": 30,
+                    "dialogue_accept": "Отлично! Крысы находятся в узком тоннеле на юге отсюда.",
+                    "dialogue_complete": "Спасибо! Теперь я могу спокойно спать. Вот твоя награда."
+                }
+            }
         }
     }
     return npcs
@@ -343,15 +354,17 @@ def load_game():
         save_data["player"]["defense"] = 0
     if "kills" not in save_data["player"]:
         save_data["player"]["kills"] = 0
+    if "quests" not in save_data["player"]:  # НОВОЕ
+        save_data["player"]["quests"] = {}
     
-    # Миграция комнат: добавляем поле npc, если его нет
+    # Миграция комнат
     for room_key in save_data["rooms"]:
         if "npc" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["npc"] = None
-        if "locked" not in save_data["rooms"][room_key]:  # НОВОЕ
+        if "locked" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["locked"] = False
     
-    # Добавляем новые комнаты, если их нет в старом сейве
+    # Добавляем новые комнаты
     new_rooms = create_rooms()
     for room_key, room_data in new_rooms.items():
         if room_key not in save_data["rooms"]:
@@ -378,6 +391,7 @@ def look(room, monsters, npcs, player):
         npc = npcs[room["npc"]]
         print(f"\n{npc['emoji']} Здесь находится {npc['name']}.")
         print(f"   💬 \"{npc['dialogue']}\"")
+        print(f"   💡 Используйте 'talk {room['npc']}' для диалога.")
 
     if room["items"]:
         print(f"\n🎒 Предметы на полу: {', '.join(room['items'])}")
@@ -386,7 +400,6 @@ def look(room, monsters, npcs, player):
         exits_str = ", ".join(room["exits"].keys())
         print(f"🚪 Выходы: {exits_str}")
     
-    # Индикатор низкого HP
     hp_percent = (player["hp"] / player["max_hp"]) * 100
     if hp_percent <= 30:
         print(f"\n⚠️ ВНИМАНИЕ: Низкий уровень HP ({player['hp']}/{player['max_hp']})!")
@@ -458,6 +471,76 @@ def equip_item(item_name, player, items_db):
         print(f"   ⚔️ +{item_data['attack_bonus']} к атаке")
     elif item_type == "armor":
         print(f"   🛡️ +{item_data['defense_bonus']} к защите")
+
+
+def talk_to_npc(npc_key, player, npcs):
+    """Поговорить с NPC."""
+    if npc_key not in npcs:
+        print("\n❌ NPC не найден.")
+        return
+    
+    npc = npcs[npc_key]
+    print(f"\n{npc['emoji']} {npc['name']}: \"{npc['dialogue']}\"")
+    
+    # Проверяем доступные квесты
+    if "quests" in npc:
+        for quest_id, quest_data in npc["quests"].items():
+            if quest_id not in player["quests"]:
+                print(f"\n📜 Доступен квест: {quest_data['name']}")
+                print(f"   {quest_data['description']}")
+                print(f"   Награда: {quest_data['reward_gold']} золота, {quest_data['reward_exp']} опыта")
+                accept = input("\nПринять квест? (да/нет): ").strip().lower()
+                if accept == "да":
+                    player["quests"][quest_id] = {
+                        "progress": 0,
+                        "completed": False
+                    }
+                    print(f"\n✅ Квест принят! {quest_data['dialogue_accept']}")
+                else:
+                    print("\n❌ Квест отклонён.")
+            else:
+                # Квест уже взят
+                quest_progress = player["quests"][quest_id]
+                if quest_progress["completed"]:
+                    print(f"\n✅ Квест '{quest_data['name']}' уже выполнен!")
+                    print(f"   {quest_data['dialogue_complete']}")
+                    # Выдаём награду только один раз
+                    if not quest_progress.get("rewarded"):
+                        player["gold"] += quest_data["reward_gold"]
+                        player["experience"] += quest_data["reward_exp"]
+                        quest_progress["rewarded"] = True
+                        print(f"   💰 +{quest_data['reward_gold']} золота")
+                        print(f"   ⭐ +{quest_data['reward_exp']} опыта")
+                        check_level_up(player)
+                else:
+                    print(f"\n📜 Квест в процессе: {quest_data['name']}")
+                    print(f"   Прогресс: {quest_progress['progress']}/{quest_data['count']}")
+
+
+def show_quests(player, npcs):
+    """Показать активные квесты."""
+    print("\n📜 === АКТИВНЫЕ КВЕСТЫ ===")
+    
+    if not player["quests"]:
+        print("  Нет активных квестов.")
+        print("  Поговорите с NPC, чтобы получить задания.")
+        return
+    
+    for quest_id, quest_progress in player["quests"].items():
+        # Находим данные квеста у NPC
+        quest_data = None
+        for npc in npcs.values():
+            if "quests" in npc and quest_id in npc["quests"]:
+                quest_data = npc["quests"][quest_id]
+                break
+        
+        if quest_data:
+            status = "✅ ВЫПОЛНЕН" if quest_progress["completed"] else "⏳ В ПРОЦЕССЕ"
+            print(f"\n  {status} — {quest_data['name']}")
+            print(f"  {quest_data['description']}")
+            print(f"  Прогресс: {quest_progress['progress']}/{quest_data['count']}")
+            if quest_progress["completed"] and not quest_progress.get("rewarded"):
+                print(f"  💡 Вернитесь к NPC за наградой!")
 
 
 def rest(player, room, monsters, items_db):
@@ -697,10 +780,12 @@ def show_help():
     print("    flee          — попытаться сбежать из боя")
     print("    rest          — отдохнуть (восстановить HP)")
     
-    print("\n  🏪 ТОРГОВЛЯ:")
+    print("\n  🏪 ТОРГОВЛЯ И КВЕСТЫ:")
     print("    shop          — показать магазин (у торговца)")
     print("    buy <предмет> — купить предмет")
     print("    sell <предмет> — продать предмет")
+    print("    talk <npc>    — поговорить с NPC")
+    print("    quests        — показать активные квесты")
     
     print("\n  📊 ИНФОРМАЦИЯ:")
     print("    stats         — показать характеристики")
@@ -741,6 +826,28 @@ def show_quit_stats(player):
     print(f"  Золото: {player['gold']}")
 
 
+def check_quest_progress(player, monster_key, npcs):
+    """Проверить прогресс квестов при убийстве монстра."""
+    for quest_id, quest_progress in player["quests"].items():
+        if quest_progress["completed"]:
+            continue
+        
+        # Находим данные квеста
+        quest_data = None
+        for npc in npcs.values():
+            if "quests" in npc and quest_id in npc["quests"]:
+                quest_data = npc["quests"][quest_id]
+                break
+        
+        if quest_data and quest_data["target"] == monster_key:
+            quest_progress["progress"] += 1
+            print(f"\n📜 Квест '{quest_data['name']}': {quest_progress['progress']}/{quest_data['count']}")
+            
+            if quest_progress["progress"] >= quest_data["count"]:
+                quest_progress["completed"] = True
+                print(f"   ✅ Квест выполнен! Вернитесь к NPC за наградой.")
+
+
 def drop_loot(monster, player):
     """Выдать лут с монстра."""
     if "loot" not in monster:
@@ -767,7 +874,7 @@ def drop_loot(monster, player):
             print(f"   📦 +1x {item}")
 
 
-def attack(player, room, monsters, items_db):
+def attack(player, room, monsters, items_db, npcs):
     """Атаковать монстра в комнате."""
     if not room["monster"]:
         print("\n❌ Здесь некого атаковать.")
@@ -802,6 +909,9 @@ def attack(player, room, monsters, items_db):
         print(f"   ⭐ Получено опыта: {monster['experience']}")
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
+        
+        # Проверяем прогресс квестов
+        check_quest_progress(player, monster_key, npcs)
         
         drop_loot(monster, player)
         
@@ -884,7 +994,6 @@ def move(current_room_name, direction, rooms, monsters, player):
         new_room_name = current_room["exits"][direction]
         new_room = rooms[new_room_name]
         
-        # Проверка на запертую дверь
         if new_room.get("locked"):
             if "железный ключ" in player["inventory"]:
                 print("\n🔑 Вы использовали железный ключ и открыли дверь!")
@@ -935,13 +1044,22 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         elif command.startswith("equip "):
             item_name = command[6:].strip()
             equip_item(item_name, player, items_db)
+        elif command.startswith("talk "):
+            npc_key = command[5:].strip()
+            room = rooms[current_room_name]
+            if room.get("npc") == npc_key:
+                talk_to_npc(npc_key, player, npcs)
+            else:
+                print(f"\n❌ Здесь нет NPC '{npc_key}'.")
+        elif command == "quests":
+            show_quests(player, npcs)
         elif command == "rest":
             result = rest(player, rooms[current_room_name], monsters, items_db)
             if result == "dead":
                 show_death_stats(player)
                 break
         elif command in ("attack", "a"):
-            result = attack(player, rooms[current_room_name], monsters, items_db)
+            result = attack(player, rooms[current_room_name], monsters, items_db, npcs)
             if result == "dead":
                 show_death_stats(player)
                 break
@@ -1031,3 +1149,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
