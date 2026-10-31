@@ -37,7 +37,7 @@ def create_player():
             "weapon": None,
             "armor": None
         },
-        "quests": {}  # НОВОЕ: активные квесты
+        "quests": {}
     }
 
     print(f"\n🎉 Герой {player['name']} создан!")
@@ -143,6 +143,12 @@ def create_items_db():
             "type": "treasure",
             "description": "Древняя корона, усыпанная камнями",
             "sell_price": 100
+        },
+        # НОВЫЙ ПРЕДМЕТ
+        "древний амулет": {
+            "type": "treasure",
+            "description": "Таинственный амулет с мерцающим камнем",
+            "sell_price": 50
         }
     }
     return items
@@ -354,7 +360,7 @@ def load_game():
         save_data["player"]["defense"] = 0
     if "kills" not in save_data["player"]:
         save_data["player"]["kills"] = 0
-    if "quests" not in save_data["player"]:  # НОВОЕ
+    if "quests" not in save_data["player"]:
         save_data["player"]["quests"] = {}
     
     # Миграция комнат
@@ -482,7 +488,6 @@ def talk_to_npc(npc_key, player, npcs):
     npc = npcs[npc_key]
     print(f"\n{npc['emoji']} {npc['name']}: \"{npc['dialogue']}\"")
     
-    # Проверяем доступные квесты
     if "quests" in npc:
         for quest_id, quest_data in npc["quests"].items():
             if quest_id not in player["quests"]:
@@ -499,12 +504,10 @@ def talk_to_npc(npc_key, player, npcs):
                 else:
                     print("\n❌ Квест отклонён.")
             else:
-                # Квест уже взят
                 quest_progress = player["quests"][quest_id]
                 if quest_progress["completed"]:
                     print(f"\n✅ Квест '{quest_data['name']}' уже выполнен!")
                     print(f"   {quest_data['dialogue_complete']}")
-                    # Выдаём награду только один раз
                     if not quest_progress.get("rewarded"):
                         player["gold"] += quest_data["reward_gold"]
                         player["experience"] += quest_data["reward_exp"]
@@ -527,7 +530,6 @@ def show_quests(player, npcs):
         return
     
     for quest_id, quest_progress in player["quests"].items():
-        # Находим данные квеста у NPC
         quest_data = None
         for npc in npcs.values():
             if "quests" in npc and quest_id in npc["quests"]:
@@ -592,47 +594,83 @@ def rest(player, room, monsters, items_db):
 
 
 def trigger_random_event(player):
-    """Случайное событие при переходе (10% шанс)."""
-    if random.randint(1, 100) > 10:
+    """Случайное событие при переходе (15% шанс)."""
+    if random.randint(1, 100) > 15:  # Увеличен шанс с 10% до 15%
         return
     
     event_roll = random.randint(1, 100)
     
     print("\n" + "✨" * 20)
     
-    if event_roll <= 25:
-        gold_found = random.randint(5, 15)
+    if event_roll <= 20:
+        # Находка золота (увеличен шанс)
+        gold_found = random.randint(8, 20)
         player["gold"] += gold_found
-        print(f"💰 Вы нашли {gold_found} золота на полу!")
+        print(f"💰 Вы нашли {gold_found} золота в трещине стены!")
     
-    elif event_roll <= 45:
-        trap_damage = random.randint(3, 8)
+    elif event_roll <= 35:
+        # Ловушка
+        trap_damage = random.randint(5, 12)
         player["hp"] -= trap_damage
-        print(f"⚠️ Вы наступили на ловушку и получили {trap_damage} урона!")
+        print(f"⚠️ Вы наступили на скрытую ловушку и получили {trap_damage} урона!")
         print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
         
         if player["hp"] <= 0:
             print("\n💀 Вы погибли от ловушки...")
             return "dead"
     
-    elif event_roll <= 65:
+    elif event_roll <= 50:
+        # Тайник с зельем
         player["inventory"].append("зелье здоровья")
-        print("🧪 Вы нашли тайник с зельем здоровья!")
+        print("🧪 Вы обнаружили тайник с зельем здоровья!")
     
-    elif event_roll <= 80:
-        heal_amount = random.randint(10, 20)
+    elif event_roll <= 65:
+        # Благословение
+        heal_amount = random.randint(15, 30)
         old_hp = player["hp"]
         player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
         healed = player["hp"] - old_hp
         print(f"✨ Таинственная сила исцелила вас на {healed} HP!")
         print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
     
+    elif event_roll <= 75:
+        # НОВОЕ: Находка предмета
+        items_found = ["кость", "паутина", "древний амулет"]
+        found_item = random.choice(items_found)
+        player["inventory"].append(found_item)
+        print(f"📦 Вы нашли {found_item} среди обломков!")
+    
+    elif event_roll <= 85:
+        # НОВОЕ: Призрак
+        messages = [
+            "👻 Перед вами появился призрак древнего воина...",
+            "👻 Тень мелькнула в углу комнаты...",
+            "👻 Вы услышали шёпот из прошлого..."
+        ]
+        print(random.choice(messages))
+        print("   ...но он исчез так же быстро, как появился.")
+    
+    elif event_roll <= 95:
+        # НОВОЕ: Провал в ловушку (меньше урона, но эффект)
+        fall_damage = random.randint(2, 5)
+        player["hp"] -= fall_damage
+        print(f"🕳️ Вы провалились в яму и получили {fall_damage} урона!")
+        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+        
+        if player["hp"] <= 0:
+            print("\n💀 Вы погибли от падения...")
+            return "dead"
+    
     else:
+        # Атмосферные сообщения
         messages = [
             "Вы слышите странный шум вдалеке...",
             "Капля воды падает вам на голову.",
             "Вы чувствуете чей-то взгляд на спине...",
-            "Стены словно шепчут что-то..."
+            "Стены словно шепчут что-то...",
+            " Летучая мышь пролетела мимо!",
+            "️ Старая свеча внезапно зажглась в нише.",
+            "🌫️ Туман сгущается вокруг вас..."
         ]
         print(f"🌫️ {random.choice(messages)}")
     
@@ -832,7 +870,6 @@ def check_quest_progress(player, monster_key, npcs):
         if quest_progress["completed"]:
             continue
         
-        # Находим данные квеста
         quest_data = None
         for npc in npcs.values():
             if "quests" in npc and quest_id in npc["quests"]:
@@ -910,7 +947,6 @@ def attack(player, room, monsters, items_db, npcs):
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
         
-        # Проверяем прогресс квестов
         check_quest_progress(player, monster_key, npcs)
         
         drop_loot(monster, player)
