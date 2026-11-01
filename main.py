@@ -49,6 +49,7 @@ def create_player():
     
     print("\n💡 Подсказка: используйте 'go north' чтобы начать путешествие!")
     print("   Введите 'help' для списка всех команд.")
+    print("   💡 Совет: используйте 'search' для поиска секретов!")
 
     return player
 
@@ -144,11 +145,25 @@ def create_items_db():
             "description": "Древняя корона, усыпанная камнями",
             "sell_price": 100
         },
-        # НОВЫЙ ПРЕДМЕТ
         "древний амулет": {
             "type": "treasure",
             "description": "Таинственный амулет с мерцающим камнем",
             "sell_price": 50
+        },
+        # НОВЫЕ ПРЕДМЕТЫ
+        "серебряный кинжал": {
+            "type": "weapon",
+            "attack_bonus": 7,
+            "description": "Острый кинжал из чистого серебра",
+            "price": 80,
+            "sell_price": 35
+        },
+        "кольцо защиты": {
+            "type": "armor",
+            "defense_bonus": 3,
+            "description": "Магическое кольцо, усиливающее защиту",
+            "price": 50,
+            "sell_price": 20
         }
     }
     return items
@@ -234,7 +249,8 @@ def create_rooms():
             "exits": {"north": "tunnel"},
             "items": ["факел"],
             "monster": None,
-            "npc": None
+            "npc": None,
+            "secret_exit": {"east": "secret_chamber"}  # НОВОЕ
         },
         "tunnel": {
             "name": "Узкий тоннель",
@@ -290,7 +306,8 @@ def create_rooms():
             "exits": {"north": "goblin_camp"},
             "items": ["щит стражника"],
             "monster": None,
-            "npc": None
+            "npc": None,
+            "secret_exit": {"east": "treasury"}  # НОВОЕ
         },
         "throne_room": {
             "name": "Тронный зал",
@@ -300,6 +317,23 @@ def create_rooms():
             "monster": None,
             "npc": None,
             "locked": True
+        },
+        # НОВЫЕ СЕКРЕТНЫЕ КОМНАТЫ
+        "secret_chamber": {
+            "name": "Тайная комната",
+            "description": "Маленькая скрытая комната, освещённая магическим светом. Здесь пахнет древними заклинаниями.",
+            "exits": {"west": "cave"},
+            "items": ["кольцо защиты", "зелье здоровья"],
+            "monster": None,
+            "npc": None
+        },
+        "treasury": {
+            "name": "Сокровищница",
+            "description": "Комната, набитая сундуками с сокровищами. Золото блестит в свете факелов.",
+            "exits": {"west": "armory"},
+            "items": ["серебряный кинжал", "золотая корона"],
+            "monster": None,
+            "npc": None
         }
     }
     return rooms
@@ -369,6 +403,8 @@ def load_game():
             save_data["rooms"][room_key]["npc"] = None
         if "locked" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["locked"] = False
+        if "secret_exit" not in save_data["rooms"][room_key]:  # НОВОЕ
+            save_data["rooms"][room_key]["secret_exit"] = None
     
     # Добавляем новые комнаты
     new_rooms = create_rooms()
@@ -406,10 +442,41 @@ def look(room, monsters, npcs, player):
         exits_str = ", ".join(room["exits"].keys())
         print(f"🚪 Выходы: {exits_str}")
     
+    # Подсказка о секретах
+    if room.get("secret_exit"):
+        print("\n💡 Вы чувствуете, что здесь есть что-то скрытое... Попробуйте 'search'.")
+    
     hp_percent = (player["hp"] / player["max_hp"]) * 100
     if hp_percent <= 30:
         print(f"\n⚠️ ВНИМАНИЕ: Низкий уровень HP ({player['hp']}/{player['max_hp']})!")
         print("   Используйте 'use зелье здоровья' или 'rest' для восстановления.")
+
+
+def search_room(room, player):
+    """Искать секреты в комнате."""
+    print("\n🔍 Вы внимательно осматриваете комнату...")
+    
+    if room.get("secret_exit") and not room.get("secret_found"):
+        # Находим секретный проход
+        room["secret_found"] = True
+        secret_dir = list(room["secret_exit"].keys())[0]
+        secret_room = room["secret_exit"][secret_dir]
+        
+        # Добавляем секретный выход в основные выходы
+        room["exits"][secret_dir] = secret_room
+        
+        print(f"\n✨ Вы обнаружили секретный проход на {secret_dir}!")
+        print(f"   🚪 Новый выход добавлен: {secret_dir}")
+        return True
+    else:
+        messages = [
+            "Вы ничего не нашли.",
+            "Только пыль и камни.",
+            "Ничего подозрительного.",
+            "Стены кажутся обычными."
+        ]
+        print(f"   🌫️ {random.choice(messages)}")
+        return False
 
 
 def take(item_name, player, room):
@@ -595,7 +662,7 @@ def rest(player, room, monsters, items_db):
 
 def trigger_random_event(player):
     """Случайное событие при переходе (15% шанс)."""
-    if random.randint(1, 100) > 15:  # Увеличен шанс с 10% до 15%
+    if random.randint(1, 100) > 15:
         return
     
     event_roll = random.randint(1, 100)
@@ -603,13 +670,11 @@ def trigger_random_event(player):
     print("\n" + "✨" * 20)
     
     if event_roll <= 20:
-        # Находка золота (увеличен шанс)
         gold_found = random.randint(8, 20)
         player["gold"] += gold_found
         print(f"💰 Вы нашли {gold_found} золота в трещине стены!")
     
     elif event_roll <= 35:
-        # Ловушка
         trap_damage = random.randint(5, 12)
         player["hp"] -= trap_damage
         print(f"⚠️ Вы наступили на скрытую ловушку и получили {trap_damage} урона!")
@@ -620,12 +685,10 @@ def trigger_random_event(player):
             return "dead"
     
     elif event_roll <= 50:
-        # Тайник с зельем
         player["inventory"].append("зелье здоровья")
         print("🧪 Вы обнаружили тайник с зельем здоровья!")
     
     elif event_roll <= 65:
-        # Благословение
         heal_amount = random.randint(15, 30)
         old_hp = player["hp"]
         player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
@@ -634,14 +697,12 @@ def trigger_random_event(player):
         print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
     
     elif event_roll <= 75:
-        # НОВОЕ: Находка предмета
         items_found = ["кость", "паутина", "древний амулет"]
         found_item = random.choice(items_found)
         player["inventory"].append(found_item)
         print(f"📦 Вы нашли {found_item} среди обломков!")
     
     elif event_roll <= 85:
-        # НОВОЕ: Призрак
         messages = [
             "👻 Перед вами появился призрак древнего воина...",
             "👻 Тень мелькнула в углу комнаты...",
@@ -651,7 +712,6 @@ def trigger_random_event(player):
         print("   ...но он исчез так же быстро, как появился.")
     
     elif event_roll <= 95:
-        # НОВОЕ: Провал в ловушку (меньше урона, но эффект)
         fall_damage = random.randint(2, 5)
         player["hp"] -= fall_damage
         print(f"🕳️ Вы провалились в яму и получили {fall_damage} урона!")
@@ -662,7 +722,6 @@ def trigger_random_event(player):
             return "dead"
     
     else:
-        # Атмосферные сообщения
         messages = [
             "Вы слышите странный шум вдалеке...",
             "Капля воды падает вам на голову.",
@@ -805,6 +864,7 @@ def show_help():
     print("\n  🚶 ПЕРЕМЕЩЕНИЕ:")
     print("    look          — осмотреться")
     print("    go <напр>     — идти (north/south/east/west)")
+    print("    search        — искать секреты в комнате")
     
     print("\n  🎒 ПРЕДМЕТЫ:")
     print("    take <предмет> — подобрать предмет")
@@ -1058,6 +1118,8 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
 
         if command == "look":
             look(rooms[current_room_name], monsters, npcs, player)
+        elif command == "search":
+            search_room(rooms[current_room_name], player)
         elif command.startswith("go "):
             direction = command[3:].strip()
             result = move(current_room_name, direction, rooms, monsters, player)
