@@ -99,6 +99,20 @@ def create_items_db():
             "price": 40,
             "sell_price": 15
         },
+        "серебряный кинжал": {
+            "type": "weapon",
+            "attack_bonus": 7,
+            "description": "Острый кинжал из чистого серебра",
+            "price": 80,
+            "sell_price": 35
+        },
+        "дубина тролля": {
+            "type": "weapon",
+            "attack_bonus": 8,
+            "description": "Тяжёлая дубина из цельного ствола дерева",
+            "price": 100,
+            "sell_price": 45
+        },
         "кожаная броня": {
             "type": "armor",
             "defense_bonus": 2,
@@ -112,6 +126,13 @@ def create_items_db():
             "description": "Прочный щит с гербом",
             "price": 60,
             "sell_price": 25
+        },
+        "кольцо защиты": {
+            "type": "armor",
+            "defense_bonus": 3,
+            "description": "Магическое кольцо, усиливающее защиту",
+            "price": 50,
+            "sell_price": 20
         },
         "зелье здоровья": {
             "type": "consumable",
@@ -149,21 +170,6 @@ def create_items_db():
             "type": "treasure",
             "description": "Таинственный амулет с мерцающим камнем",
             "sell_price": 50
-        },
-        # НОВЫЕ ПРЕДМЕТЫ
-        "серебряный кинжал": {
-            "type": "weapon",
-            "attack_bonus": 7,
-            "description": "Острый кинжал из чистого серебра",
-            "price": 80,
-            "sell_price": 35
-        },
-        "кольцо защиты": {
-            "type": "armor",
-            "defense_bonus": 3,
-            "description": "Магическое кольцо, усиливающее защиту",
-            "price": 50,
-            "sell_price": 20
         }
     }
     return items
@@ -235,6 +241,21 @@ def create_monsters():
                 {"item": "зелье здоровья", "amount": 1, "chance": 40},
                 {"item": "ржавый меч", "amount": 1, "chance": 20}
             ]
+        },
+        # НОВЫЙ МИНИ-БОСС
+        "troll": {
+            "name": "Пещерный тролль",
+            "hp": 80,
+            "max_hp": 80,
+            "attack": 14,
+            "experience": 80,
+            "emoji": "🧌",
+            "is_boss": True,
+            "loot": [
+                {"item": "золото", "amount": 50, "chance": 100},
+                {"item": "зелье здоровья", "amount": 1, "chance": 60},
+                {"item": "дубина тролля", "amount": 1, "chance": 40}
+            ]
         }
     }
     return monsters
@@ -250,7 +271,7 @@ def create_rooms():
             "items": ["факел"],
             "monster": None,
             "npc": None,
-            "secret_exit": {"east": "secret_chamber"}  # НОВОЕ
+            "secret_exit": {"east": "secret_chamber"}
         },
         "tunnel": {
             "name": "Узкий тоннель",
@@ -295,7 +316,7 @@ def create_rooms():
         "dark_lake": {
             "name": "Тёмное озеро",
             "description": "Подземное озеро с чёрной водой. От воды веет холодом и опасностью.",
-            "exits": {"north": "spider_nest"},
+            "exits": {"north": "spider_nest", "east": "troll_lair"},
             "items": ["железный ключ"],
             "monster": None,
             "npc": None
@@ -307,7 +328,7 @@ def create_rooms():
             "items": ["щит стражника"],
             "monster": None,
             "npc": None,
-            "secret_exit": {"east": "treasury"}  # НОВОЕ
+            "secret_exit": {"east": "treasury"}
         },
         "throne_room": {
             "name": "Тронный зал",
@@ -318,7 +339,6 @@ def create_rooms():
             "npc": None,
             "locked": True
         },
-        # НОВЫЕ СЕКРЕТНЫЕ КОМНАТЫ
         "secret_chamber": {
             "name": "Тайная комната",
             "description": "Маленькая скрытая комната, освещённая магическим светом. Здесь пахнет древними заклинаниями.",
@@ -333,6 +353,15 @@ def create_rooms():
             "exits": {"west": "armory"},
             "items": ["серебряный кинжал", "золотая корона"],
             "monster": None,
+            "npc": None
+        },
+        # НОВАЯ КОМНАТА МИНИ-БОССА
+        "troll_lair": {
+            "name": "Логово тролля",
+            "description": "Огромная пещера, заваленная костями и валунами. В центре храпит огромное существо.",
+            "exits": {"west": "dark_lake"},
+            "items": [],
+            "monster": "troll",
             "npc": None
         }
     }
@@ -403,14 +432,18 @@ def load_game():
             save_data["rooms"][room_key]["npc"] = None
         if "locked" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["locked"] = False
-        if "secret_exit" not in save_data["rooms"][room_key]:  # НОВОЕ
+        if "secret_exit" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["secret_exit"] = None
     
-    # Добавляем новые комнаты
+    # Добавляем новые комнаты и новые выходы из старых комнат
     new_rooms = create_rooms()
     for room_key, room_data in new_rooms.items():
         if room_key not in save_data["rooms"]:
             save_data["rooms"][room_key] = room_data
+        else:
+            for direction, target in room_data["exits"].items():
+                if direction not in save_data["rooms"][room_key]["exits"]:
+                    save_data["rooms"][room_key]["exits"][direction] = target
     
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
@@ -426,8 +459,13 @@ def look(room, monsters, npcs, player):
 
     if room["monster"]:
         monster = monsters[room["monster"]]
-        print(f"\n{monster['emoji']} Здесь находится {monster['name']}! "
-              f"(HP: {monster['hp']}/{monster['max_hp']})")
+        if monster.get("is_boss"):
+            print(f"\n⚠️ МИНИ-БОСС: {monster['emoji']} {monster['name']}! "
+                  f"(HP: {monster['hp']}/{monster['max_hp']})")
+            print("   ☠️ Это очень опасный противник! Подготовьтесь перед боем.")
+        else:
+            print(f"\n{monster['emoji']} Здесь находится {monster['name']}! "
+                  f"(HP: {monster['hp']}/{monster['max_hp']})")
 
     if room.get("npc"):
         npc = npcs[room["npc"]]
@@ -443,7 +481,7 @@ def look(room, monsters, npcs, player):
         print(f"🚪 Выходы: {exits_str}")
     
     # Подсказка о секретах
-    if room.get("secret_exit"):
+    if room.get("secret_exit") and not room.get("secret_found"):
         print("\n💡 Вы чувствуете, что здесь есть что-то скрытое... Попробуйте 'search'.")
     
     hp_percent = (player["hp"] / player["max_hp"]) * 100
@@ -457,12 +495,10 @@ def search_room(room, player):
     print("\n🔍 Вы внимательно осматриваете комнату...")
     
     if room.get("secret_exit") and not room.get("secret_found"):
-        # Находим секретный проход
         room["secret_found"] = True
         secret_dir = list(room["secret_exit"].keys())[0]
         secret_room = room["secret_exit"][secret_dir]
         
-        # Добавляем секретный выход в основные выходы
         room["exits"][secret_dir] = secret_room
         
         print(f"\n✨ Вы обнаружили секретный проход на {secret_dir}!")
@@ -727,8 +763,8 @@ def trigger_random_event(player):
             "Капля воды падает вам на голову.",
             "Вы чувствуете чей-то взгляд на спине...",
             "Стены словно шепчут что-то...",
-            " Летучая мышь пролетела мимо!",
-            "️ Старая свеча внезапно зажглась в нише.",
+            "Летучая мышь пролетела мимо!",
+            "Старая свеча внезапно зажглась в нише.",
             "🌫️ Туман сгущается вокруг вас..."
         ]
         print(f"🌫️ {random.choice(messages)}")
@@ -1001,6 +1037,14 @@ def attack(player, room, monsters, items_db, npcs):
 
     if monster["hp"] <= 0:
         print(f"\n🎉 Вы победили {monster['name']}!")
+        
+        # Особое сообщение для мини-босса
+        if monster.get("is_boss"):
+            print("\n" + "🏆" * 15)
+            print("   МИНИ-БОСС ПОВЕРЖЕН!")
+            print("   Подземелье содрогнулось от вашего удара!")
+            print("🏆" * 15)
+        
         player["experience"] += monster["experience"]
         player["kills"] += 1
         print(f"   ⭐ Получено опыта: {monster['experience']}")
