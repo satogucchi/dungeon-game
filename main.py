@@ -32,6 +32,7 @@ def create_player():
         "experience": 0,
         "gold": 0,
         "kills": 0,
+        "victory": False,  # НОВОЕ: флаг победы над финальным боссом
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -112,6 +113,12 @@ def create_items_db():
             "description": "Тяжёлая дубина из цельного ствола дерева",
             "price": 100,
             "sell_price": 45
+        },
+        "меч короля скелетов": {
+            "type": "weapon",
+            "attack_bonus": 10,
+            "description": "Проклятый клинок бывшего властителя подземелья",
+            "sell_price": 60
         },
         "кожаная броня": {
             "type": "armor",
@@ -242,7 +249,6 @@ def create_monsters():
                 {"item": "ржавый меч", "amount": 1, "chance": 20}
             ]
         },
-        # НОВЫЙ МИНИ-БОСС
         "troll": {
             "name": "Пещерный тролль",
             "hp": 80,
@@ -255,6 +261,22 @@ def create_monsters():
                 {"item": "золото", "amount": 50, "chance": 100},
                 {"item": "зелье здоровья", "amount": 1, "chance": 60},
                 {"item": "дубина тролля", "amount": 1, "chance": 40}
+            ]
+        },
+        # НОВЫЙ ФИНАЛЬНЫЙ БОСС
+        "skeleton_king": {
+            "name": "Король Скелетов",
+            "hp": 120,
+            "max_hp": 120,
+            "attack": 18,
+            "experience": 150,
+            "emoji": "☠️",
+            "is_boss": True,
+            "is_final": True,
+            "loot": [
+                {"item": "золото", "amount": 100, "chance": 100},
+                {"item": "зелье здоровья", "amount": 2, "chance": 100},
+                {"item": "меч короля скелетов", "amount": 1, "chance": 50}
             ]
         }
     }
@@ -335,7 +357,7 @@ def create_rooms():
             "description": "Величественный зал с троном из костей. Здесь пахнет древней магией.",
             "exits": {"south": "bone_crypt"},
             "items": ["золотая корона"],
-            "monster": None,
+            "monster": "skeleton_king",  # НОВОЕ: финальный босс
             "npc": None,
             "locked": True
         },
@@ -355,7 +377,6 @@ def create_rooms():
             "monster": None,
             "npc": None
         },
-        # НОВАЯ КОМНАТА МИНИ-БОССА
         "troll_lair": {
             "name": "Логово тролля",
             "description": "Огромная пещера, заваленная костями и валунами. В центре храпит огромное существо.",
@@ -399,7 +420,8 @@ def save_game(player, rooms, current_room_name):
     save_data = {
         "player": player,
         "rooms": rooms,
-        "current_room": current_room_name
+        "current_room": current_room_name,
+        "save_version": 2  # НОВОЕ: версия сейва для миграций
     }
     with open("saves/savegame.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, ensure_ascii=False, indent=2)
@@ -414,7 +436,7 @@ def load_game():
     with open("saves/savegame.json", "r", encoding="utf-8") as f:
         save_data = json.load(f)
     
-    # Миграция старых сейвов
+    # Миграция старых сейвов (игрок)
     if "gold" not in save_data["player"]:
         save_data["player"]["gold"] = 0
     if "equipment" not in save_data["player"]:
@@ -423,6 +445,8 @@ def load_game():
         save_data["player"]["defense"] = 0
     if "kills" not in save_data["player"]:
         save_data["player"]["kills"] = 0
+    if "victory" not in save_data["player"]:
+        save_data["player"]["victory"] = False
     if "quests" not in save_data["player"]:
         save_data["player"]["quests"] = {}
     
@@ -445,6 +469,12 @@ def load_game():
                 if direction not in save_data["rooms"][room_key]["exits"]:
                     save_data["rooms"][room_key]["exits"][direction] = target
     
+    # Миграция на версию 2: финальный босс в Тронном зале (только для старых сейвов)
+    if save_data.get("save_version", 1) < 2:
+        throne = save_data["rooms"].get("throne_room")
+        if throne is not None and throne.get("monster") is None:
+            throne["monster"] = "skeleton_king"
+    
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
@@ -459,7 +489,11 @@ def look(room, monsters, npcs, player):
 
     if room["monster"]:
         monster = monsters[room["monster"]]
-        if monster.get("is_boss"):
+        if monster.get("is_final"):
+            print(f"\n☠️ ФИНАЛЬНЫЙ БОСС: {monster['emoji']} {monster['name']}!! "
+                  f"(HP: {monster['hp']}/{monster['max_hp']})")
+            print("   ☠️ Сильнейший враг подземелья! Запаситесь зельями!")
+        elif monster.get("is_boss"):
             print(f"\n⚠️ МИНИ-БОСС: {monster['emoji']} {monster['name']}! "
                   f"(HP: {monster['hp']}/{monster['max_hp']})")
             print("   ☠️ Это очень опасный противник! Подготовьтесь перед боем.")
@@ -890,6 +924,8 @@ def show_stats(player, items_db):
     print(f"  🛡️  Защита: {total_defense} ({player['defense']} + {armor_bonus})")
     print(f"  💰 Золото: {player['gold']}")
     print(f"  💀 Убийств: {player['kills']}")
+    if player["victory"]:
+        print(f"  👑 Подземелье пройдено: ДА")
     print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
     print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
 
@@ -1038,8 +1074,14 @@ def attack(player, room, monsters, items_db, npcs):
     if monster["hp"] <= 0:
         print(f"\n🎉 Вы победили {monster['name']}!")
         
-        # Особое сообщение для мини-босса
-        if monster.get("is_boss"):
+        # Особые сообщения для боссов
+        if monster.get("is_final"):
+            print("\n" + "👑" * 15)
+            print("   ФИНАЛЬНЫЙ БОСС ПОВЕРЖЕН!")
+            print("   Король Скелетов пал. Подземелье освобождено от зла!")
+            print("👑" * 15)
+            player["victory"] = True
+        elif monster.get("is_boss"):
             print("\n" + "🏆" * 15)
             print("   МИНИ-БОСС ПОВЕРЖЕН!")
             print("   Подземелье содрогнулось от вашего удара!")
@@ -1291,4 +1333,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
