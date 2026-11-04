@@ -32,7 +32,7 @@ def create_player():
         "experience": 0,
         "gold": 0,
         "kills": 0,
-        "victory": False,  # НОВОЕ: флаг победы над финальным боссом
+        "victory": False,
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -263,7 +263,6 @@ def create_monsters():
                 {"item": "дубина тролля", "amount": 1, "chance": 40}
             ]
         },
-        # НОВЫЙ ФИНАЛЬНЫЙ БОСС
         "skeleton_king": {
             "name": "Король Скелетов",
             "hp": 120,
@@ -357,7 +356,7 @@ def create_rooms():
             "description": "Величественный зал с троном из костей. Здесь пахнет древней магией.",
             "exits": {"south": "bone_crypt"},
             "items": ["золотая корона"],
-            "monster": "skeleton_king",  # НОВОЕ: финальный босс
+            "monster": "skeleton_king",
             "npc": None,
             "locked": True
         },
@@ -421,7 +420,7 @@ def save_game(player, rooms, current_room_name):
         "player": player,
         "rooms": rooms,
         "current_room": current_room_name,
-        "save_version": 2  # НОВОЕ: версия сейва для миграций
+        "save_version": 2
     }
     with open("saves/savegame.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, ensure_ascii=False, indent=2)
@@ -974,6 +973,26 @@ def clear_screen():
     print("🧹 Экран очищен.")
 
 
+def show_victory_screen(player):
+    """Показать экран победы после победы над финальным боссом."""
+    print("\n" + "👑" * 20)
+    print("   П О Б Е Д А !")
+    print("👑" * 20)
+    print(f"\n   🎉 Герой {player['name']} поверг Короля Скелетов!")
+    print("   Подземелье освобождено от древнего зла.")
+    print("   Барды будут слагать песни о твоём подвиге!")
+    print(f"\n   📊 === СТАТИСТИКА ПРОХОЖДЕНИЯ ===")
+    print(f"   ⭐ Уровень героя: {player['level']}")
+    print(f"   💀 Монстров убито: {player['kills']}")
+    print(f"   💰 Золота собрано: {player['gold']}")
+    print(f"   ❤️ Остаток HP: {player['hp']}/{player['max_hp']}")
+    print(f"   🎒 Предметов в инвентаре: {len(player['inventory'])}")
+    print(f"\n   🎁 Подземелье остаётся открытым для свободной игры:")
+    print("   добейте монстров, соберите сокровища или сдайте квесты.")
+    print("   Введите 'quit', чтобы завершить поход.")
+    print("\n" + "👑" * 20)
+
+
 def show_death_stats(player):
     """Показать статистику при смерти."""
     print("\n" + "💀" * 20)
@@ -994,6 +1013,8 @@ def show_quit_stats(player):
     print(f"  Уровень: {player['level']}")
     print(f"  Убито монстров: {player['kills']}")
     print(f"  Золото: {player['gold']}")
+    if player["victory"]:
+        print(f"  👑 Подземелье пройдено: ДА")
 
 
 def check_quest_progress(player, monster_key, npcs):
@@ -1243,10 +1264,14 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
                 show_death_stats(player)
                 break
         elif command in ("attack", "a"):
+            was_victory = player["victory"]  # НОВОЕ: запоминаем флаг до боя
             result = attack(player, rooms[current_room_name], monsters, items_db, npcs)
             if result == "dead":
                 show_death_stats(player)
                 break
+            # НОВОЕ: показываем экран победы один раз, в момент победы
+            if player["victory"] and not was_victory:
+                show_victory_screen(player)
         elif command == "flee":
             result = flee(player, rooms[current_room_name], rooms, monsters, items_db, current_room_name)
             if result == "dead":
@@ -1333,3 +1358,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
