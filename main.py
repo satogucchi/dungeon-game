@@ -10,7 +10,8 @@ def show_menu():
     print("=" * 40)
     print("  1. ⚔️  Новая игра")
     print("  2. 📂 Загрузить игру")
-    print("  3. 🚪 Выход")
+    print("  3. 🏆 Рекорды")
+    print("  4. 🚪 Выход")
     print("=" * 40)
 
 
@@ -476,6 +477,66 @@ def load_game():
     
     print("\n📂 Игра загружена!")
     return save_data["player"], save_data["rooms"], save_data["current_room"]
+
+
+def calculate_score(player):
+    """Посчитать очки забега для таблицы рекордов."""
+    score = player["kills"] * 10 + player["gold"] + player["level"] * 50
+    if player["victory"]:
+        score += 500
+    return score
+
+
+def save_highscore(player):
+    """Сохранить забег в таблицу рекордов (топ-10)."""
+    os.makedirs("saves", exist_ok=True)
+    path = "saves/highscores.json"
+
+    entries = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+
+    entries.append({
+        "name": player["name"],
+        "level": player["level"],
+        "kills": player["kills"],
+        "gold": player["gold"],
+        "victory": player["victory"],
+        "score": calculate_score(player)
+    })
+
+    # Сортируем по очкам (по убыванию) и оставляем топ-10
+    entries.sort(key=lambda entry: entry["score"], reverse=True)
+    entries = entries[:10]
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+
+def show_highscores():
+    """Показать таблицу рекордов."""
+    path = "saves/highscores.json"
+    print("\n🏆 === ТАБЛИЦА РЕКОРДОВ ===")
+
+    entries = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+
+    if not entries:
+        print("  Таблица пуста. Станьте первым героем!")
+        return
+
+    medals = ["🥇", "", ""]
+    for i, entry in enumerate(entries):
+        if i < 3:
+            place = medals[i]
+        else:
+            place = f"{i + 1}."
+        victory_mark = " 👑" if entry["victory"] else ""
+        print(f"  {place} {entry['name']} — {entry['score']} очков{victory_mark}")
+        print(f"     Уровень {entry['level']}, убийств: {entry['kills']}, золото: {entry['gold']}")
 
 
 def look(room, monsters, npcs, player):
@@ -987,6 +1048,11 @@ def show_victory_screen(player):
     print(f"   💰 Золота собрано: {player['gold']}")
     print(f"   ❤️ Остаток HP: {player['hp']}/{player['max_hp']}")
     print(f"   🎒 Предметов в инвентаре: {len(player['inventory'])}")
+
+    # НОВОЕ: сохраняем забег в таблицу рекордов
+    save_highscore(player)
+    print(f"\n   🏆 Результат сохранён в таблице рекордов!")
+
     print(f"\n   🎁 Подземелье остаётся открытым для свободной игры:")
     print("   добейте монстров, соберите сокровища или сдайте квесты.")
     print("   Введите 'quit', чтобы завершить поход.")
@@ -1004,6 +1070,10 @@ def show_death_stats(player):
     print(f"  Убито монстров: {player['kills']}")
     print(f"  Собрано золота: {player['gold']}")
     print(f"  Финальный HP: {player['hp']}/{player['max_hp']}")
+
+    # НОВОЕ: сохраняем забег в таблицу рекордов
+    save_highscore(player)
+    print(f"\n🏆 Результат сохранён в таблице рекордов!")
     print("\n👋 Спасибо за игру!")
 
 
@@ -1264,12 +1334,11 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
                 show_death_stats(player)
                 break
         elif command in ("attack", "a"):
-            was_victory = player["victory"]  # НОВОЕ: запоминаем флаг до боя
+            was_victory = player["victory"]
             result = attack(player, rooms[current_room_name], monsters, items_db, npcs)
             if result == "dead":
                 show_death_stats(player)
                 break
-            # НОВОЕ: показываем экран победы один раз, в момент победы
             if player["victory"] and not was_victory:
                 show_victory_screen(player)
         elif command == "flee":
@@ -1350,6 +1419,8 @@ def main():
                 npcs = create_npcs()
                 game_loop(player, rooms, monsters, items_db, npcs, current_room_name)
         elif choice == "3":
+            show_highscores()
+        elif choice == "4":
             print("\n👋 До свидания!")
             break
         else:
