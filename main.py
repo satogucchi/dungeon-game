@@ -15,7 +15,31 @@ def show_menu():
     print("=" * 40)
 
 
-def create_player():
+def choose_difficulty():
+    """Выбрать сложность игры."""
+    print("\n⚙️ === ВЫБОР СЛОЖНОСТИ ===")
+    print("  1. 🟢 Легко — монстры слабее, больше золота")
+    print("  2. 🟡 Нормально — сбалансированная игра")
+    print("  3. 🔴 Кошмар — монстры сильнее, больше опыта и золота")
+    choice = input("\nВаш выбор (1/2/3): ").strip()
+    if choice == "1":
+        return "easy"
+    elif choice == "3":
+        return "nightmare"
+    return "normal"
+
+
+def difficulty_name(difficulty):
+    """Красивое название сложности."""
+    names = {
+        "easy": "🟢 Легко",
+        "normal": "🟡 Нормально",
+        "nightmare": "🔴 Кошмар"
+    }
+    return names.get(difficulty, "🟡 Нормально")
+
+
+def create_player(difficulty="normal"):
     """Создать нового персонажа."""
     print("\n✨ === СОЗДАНИЕ ПЕРСОНАЖА === ✨")
     name = input("Введите имя героя: ").strip()
@@ -34,6 +58,7 @@ def create_player():
         "gold": 0,
         "kills": 0,
         "victory": False,
+        "difficulty": difficulty,  # НОВОЕ: выбранная сложность
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -48,6 +73,7 @@ def create_player():
     print(f"🛡️  Защита: {player['defense']}")
     print(f"⭐ Уровень: {player['level']}")
     print(f"💰 Золото: {player['gold']}")
+    print(f"⚙️  Сложность: {difficulty_name(difficulty)}")
     
     print("\n💡 Подсказка: используйте 'go north' чтобы начать путешествие!")
     print("   Введите 'help' для списка всех команд.")
@@ -183,8 +209,8 @@ def create_items_db():
     return items
 
 
-def create_monsters():
-    """Создать шаблоны монстров с балансом и лутом."""
+def create_monsters(difficulty="normal"):
+    """Создать шаблоны монстров с учётом сложности."""
     monsters = {
         "rat": {
             "name": "Гигантская крыса",
@@ -280,6 +306,24 @@ def create_monsters():
             ]
         }
     }
+
+    # НОВОЕ: множители сложности
+    if difficulty == "easy":
+        hp_mult, atk_mult, exp_mult, gold_mult = 0.7, 0.7, 1.0, 1.2
+    elif difficulty == "nightmare":
+        hp_mult, atk_mult, exp_mult, gold_mult = 1.5, 1.4, 1.3, 1.5
+    else:
+        return monsters  # нормальная сложность — без изменений
+
+    for monster in monsters.values():
+        monster["hp"] = max(1, int(monster["hp"] * hp_mult))
+        monster["max_hp"] = monster["hp"]
+        monster["attack"] = max(1, int(monster["attack"] * atk_mult))
+        monster["experience"] = max(1, int(monster["experience"] * exp_mult))
+        for loot_entry in monster["loot"]:
+            if loot_entry["item"] == "золото":
+                loot_entry["amount"] = max(1, int(loot_entry["amount"] * gold_mult))
+
     return monsters
 
 
@@ -447,6 +491,8 @@ def load_game():
         save_data["player"]["kills"] = 0
     if "victory" not in save_data["player"]:
         save_data["player"]["victory"] = False
+    if "difficulty" not in save_data["player"]:  # НОВОЕ
+        save_data["player"]["difficulty"] = "normal"
     if "quests" not in save_data["player"]:
         save_data["player"]["quests"] = {}
     
@@ -503,6 +549,7 @@ def save_highscore(player):
         "kills": player["kills"],
         "gold": player["gold"],
         "victory": player["victory"],
+        "difficulty": player.get("difficulty", "normal"),  # НОВОЕ
         "score": calculate_score(player)
     })
 
@@ -528,7 +575,7 @@ def show_highscores():
         print("  Таблица пуста. Станьте первым героем!")
         return
 
-    medals = ["🥇", "", ""]
+    medals = ["🥇", "🥈", ""]
     for i, entry in enumerate(entries):
         if i < 3:
             place = medals[i]
@@ -536,7 +583,9 @@ def show_highscores():
             place = f"{i + 1}."
         victory_mark = " 👑" if entry["victory"] else ""
         print(f"  {place} {entry['name']} — {entry['score']} очков{victory_mark}")
-        print(f"     Уровень {entry['level']}, убийств: {entry['kills']}, золото: {entry['gold']}")
+        diff = difficulty_name(entry.get("difficulty", "normal"))
+        print(f"     Уровень {entry['level']}, убийств: {entry['kills']}, "
+              f"золото: {entry['gold']}, сложность: {diff}")
 
 
 def look(room, monsters, npcs, player):
@@ -977,6 +1026,7 @@ def show_stats(player, items_db):
     
     print("\n📊 === ХАРАКТЕРИСТИКИ ===")
     print(f"  Имя: {player['name']}")
+    print(f"  ⚙️  Сложность: {difficulty_name(player.get('difficulty', 'normal'))}")
     print(f"  ⭐ Уровень: {player['level']}")
     print(f"  ✨ Опыт: {player['experience']}/{needed}")
     print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
@@ -1043,13 +1093,13 @@ def show_victory_screen(player):
     print("   Подземелье освобождено от древнего зла.")
     print("   Барды будут слагать песни о твоём подвиге!")
     print(f"\n   📊 === СТАТИСТИКА ПРОХОЖДЕНИЯ ===")
+    print(f"   ⚙️  Сложность: {difficulty_name(player.get('difficulty', 'normal'))}")
     print(f"   ⭐ Уровень героя: {player['level']}")
     print(f"   💀 Монстров убито: {player['kills']}")
     print(f"   💰 Золота собрано: {player['gold']}")
     print(f"   ❤️ Остаток HP: {player['hp']}/{player['max_hp']}")
     print(f"   🎒 Предметов в инвентаре: {len(player['inventory'])}")
 
-    # НОВОЕ: сохраняем забег в таблицу рекордов
     save_highscore(player)
     print(f"\n   🏆 Результат сохранён в таблице рекордов!")
 
@@ -1066,12 +1116,12 @@ def show_death_stats(player):
     print("💀" * 20)
     print(f"\n📊 СТАТИСТИКА ЗА СЕССИЮ:")
     print(f"  Имя: {player['name']}")
+    print(f"  Сложность: {difficulty_name(player.get('difficulty', 'normal'))}")
     print(f"  Уровень: {player['level']}")
     print(f"  Убито монстров: {player['kills']}")
     print(f"  Собрано золота: {player['gold']}")
     print(f"  Финальный HP: {player['hp']}/{player['max_hp']}")
 
-    # НОВОЕ: сохраняем забег в таблицу рекордов
     save_highscore(player)
     print(f"\n🏆 Результат сохранён в таблице рекордов!")
     print("\n👋 Спасибо за игру!")
@@ -1404,9 +1454,10 @@ def main():
         choice = input("\nВыберите действие: ").strip()
 
         if choice == "1":
-            player = create_player()
+            difficulty = choose_difficulty()  # НОВОЕ: выбор сложности
+            player = create_player(difficulty)
             rooms = create_rooms()
-            monsters = create_monsters()
+            monsters = create_monsters(difficulty)  # НОВОЕ: монстры по сложности
             items_db = create_items_db()
             npcs = create_npcs()
             current_room_name = "cave"
@@ -1414,7 +1465,7 @@ def main():
         elif choice == "2":
             player, rooms, current_room_name = load_game()
             if player:
-                monsters = create_monsters()
+                monsters = create_monsters(player.get("difficulty", "normal"))  # НОВОЕ
                 items_db = create_items_db()
                 npcs = create_npcs()
                 game_loop(player, rooms, monsters, items_db, npcs, current_room_name)
@@ -1429,4 +1480,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
