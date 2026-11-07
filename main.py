@@ -3,10 +3,26 @@ import os
 import random
 
 
+# НОВОЕ: ANSI-цвета для терминала
+COLOR_RED = "\033[91m"
+COLOR_GREEN = "\033[92m"
+COLOR_YELLOW = "\033[93m"
+COLOR_BLUE = "\033[94m"
+COLOR_MAGENTA = "\033[95m"
+COLOR_CYAN = "\033[96m"
+COLOR_BOLD = "\033[1m"
+COLOR_RESET = "\033[0m"
+
+
+def paint(text, color):
+    """Обернуть текст в ANSI-цвет для терминала."""
+    return color + text + COLOR_RESET
+
+
 def show_menu():
     """Показать главное меню."""
     print("\n" + "=" * 40)
-    print("       🏰 ПОДЗЕМЕЛЬЕ 🏰")
+    print(paint("       🏰 ПОДЗЕМЕЛЬЕ 🏰", COLOR_BOLD + COLOR_CYAN))
     print("=" * 40)
     print("  1. ⚔️  Новая игра")
     print("  2. 📂 Загрузить игру")
@@ -17,10 +33,10 @@ def show_menu():
 
 def choose_difficulty():
     """Выбрать сложность игры."""
-    print("\n⚙️ === ВЫБОР СЛОЖНОСТИ ===")
-    print("  1. 🟢 Легко — монстры слабее, больше золота")
+    print("\n" + paint("⚙️ === ВЫБОР СЛОЖНОСТИ ===", COLOR_BOLD + COLOR_CYAN))
+    print(paint("  1. 🟢 Легко — монстры слабее, больше золота", COLOR_GREEN))
     print("  2. 🟡 Нормально — сбалансированная игра")
-    print("  3. 🔴 Кошмар — монстры сильнее, больше опыта и золота")
+    print(paint("  3. 🔴 Кошмар — монстры сильнее, больше опыта и золота", COLOR_RED))
     choice = input("\nВаш выбор (1/2/3): ").strip()
     if choice == "1":
         return "easy"
@@ -41,7 +57,7 @@ def difficulty_name(difficulty):
 
 def create_player(difficulty="normal"):
     """Создать нового персонажа."""
-    print("\n✨ === СОЗДАНИЕ ПЕРСОНАЖА === ✨")
+    print("\n" + paint("✨ === СОЗДАНИЕ ПЕРСОНАЖА === ✨", COLOR_BOLD + COLOR_MAGENTA))
     name = input("Введите имя героя: ").strip()
 
     if not name:
@@ -58,7 +74,7 @@ def create_player(difficulty="normal"):
         "gold": 0,
         "kills": 0,
         "victory": False,
-        "difficulty": difficulty,  # НОВОЕ: выбранная сложность
+        "difficulty": difficulty,
         "inventory": [],
         "equipment": {
             "weapon": None,
@@ -72,8 +88,8 @@ def create_player(difficulty="normal"):
     print(f"⚔️  Атака: {player['attack']}")
     print(f"🛡️  Защита: {player['defense']}")
     print(f"⭐ Уровень: {player['level']}")
-    print(f"💰 Золото: {player['gold']}")
-    print(f"⚙️  Сложность: {difficulty_name(difficulty)}")
+    print(paint(f"💰 Золото: {player['gold']}", COLOR_YELLOW))
+    print(paint(f"⚙️  Сложность: {difficulty_name(difficulty)}", COLOR_CYAN))
     
     print("\n💡 Подсказка: используйте 'go north' чтобы начать путешествие!")
     print("   Введите 'help' для списка всех команд.")
@@ -99,13 +115,13 @@ def check_level_up(player):
         player["defense"] += 1
         leveled_up = True
 
-        print("\n" + "🌟" * 15)
-        print(f"   🎊 НОВЫЙ УРОВЕНЬ: {player['level']}! 🎊")
-        print(f"   ❤️  Макс. HP: {player['max_hp']}")
-        print(f"   ⚔️  Атака: {player['attack']}")
-        print(f"   🛡️  Защита: {player['defense']}")
-        print(f"   💚 HP полностью восстановлено!")
-        print("🌟" * 15)
+        print("\n" + paint("🌟" * 15, COLOR_YELLOW))
+        print(paint(f"   🎊 НОВЫЙ УРОВЕНЬ: {player['level']}! 🎊", COLOR_BOLD + COLOR_YELLOW))
+        print(paint(f"   ❤️  Макс. HP: {player['max_hp']}", COLOR_YELLOW))
+        print(paint(f"   ⚔️  Атака: {player['attack']}", COLOR_YELLOW))
+        print(paint(f"   🛡️  Защита: {player['defense']}", COLOR_YELLOW))
+        print(paint(f"   💚 HP полностью восстановлено!", COLOR_GREEN))
+        print(paint("🌟" * 15, COLOR_YELLOW))
 
     return leveled_up
 
@@ -307,13 +323,13 @@ def create_monsters(difficulty="normal"):
         }
     }
 
-    # НОВОЕ: множители сложности
+    # Множители сложности
     if difficulty == "easy":
         hp_mult, atk_mult, exp_mult, gold_mult = 0.7, 0.7, 1.0, 1.2
     elif difficulty == "nightmare":
         hp_mult, atk_mult, exp_mult, gold_mult = 1.5, 1.4, 1.3, 1.5
     else:
-        return monsters  # нормальная сложность — без изменений
+        return monsters
 
     for monster in monsters.values():
         monster["hp"] = max(1, int(monster["hp"] * hp_mult))
@@ -469,13 +485,13 @@ def save_game(player, rooms, current_room_name):
     }
     with open("saves/savegame.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, ensure_ascii=False, indent=2)
-    print("\n💾 Игра сохранена!")
+    print("\n" + paint("💾 Игра сохранена!", COLOR_GREEN))
 
 
 def load_game():
     """Загрузить игру из файла."""
     if not os.path.exists("saves/savegame.json"):
-        print("\n❌ Сохранение не найдено!")
+        print("\n" + paint("❌ Сохранение не найдено!", COLOR_RED))
         return None, None, None
     with open("saves/savegame.json", "r", encoding="utf-8") as f:
         save_data = json.load(f)
@@ -491,7 +507,7 @@ def load_game():
         save_data["player"]["kills"] = 0
     if "victory" not in save_data["player"]:
         save_data["player"]["victory"] = False
-    if "difficulty" not in save_data["player"]:  # НОВОЕ
+    if "difficulty" not in save_data["player"]:
         save_data["player"]["difficulty"] = "normal"
     if "quests" not in save_data["player"]:
         save_data["player"]["quests"] = {}
@@ -521,7 +537,7 @@ def load_game():
         if throne is not None and throne.get("monster") is None:
             throne["monster"] = "skeleton_king"
     
-    print("\n📂 Игра загружена!")
+    print("\n" + paint("📂 Игра загружена!", COLOR_GREEN))
     return save_data["player"], save_data["rooms"], save_data["current_room"]
 
 
@@ -549,11 +565,10 @@ def save_highscore(player):
         "kills": player["kills"],
         "gold": player["gold"],
         "victory": player["victory"],
-        "difficulty": player.get("difficulty", "normal"),  # НОВОЕ
+        "difficulty": player.get("difficulty", "normal"),
         "score": calculate_score(player)
     })
 
-    # Сортируем по очкам (по убыванию) и оставляем топ-10
     entries.sort(key=lambda entry: entry["score"], reverse=True)
     entries = entries[:10]
 
@@ -564,7 +579,7 @@ def save_highscore(player):
 def show_highscores():
     """Показать таблицу рекордов."""
     path = "saves/highscores.json"
-    print("\n🏆 === ТАБЛИЦА РЕКОРДОВ ===")
+    print("\n" + paint("🏆 === ТАБЛИЦА РЕКОРДОВ ===", COLOR_BOLD + COLOR_YELLOW))
 
     entries = []
     if os.path.exists(path):
@@ -575,14 +590,15 @@ def show_highscores():
         print("  Таблица пуста. Станьте первым героем!")
         return
 
-    medals = ["🥇", "🥈", ""]
+    medals = ["🥇", "🥈", "🥉"]
     for i, entry in enumerate(entries):
         if i < 3:
             place = medals[i]
         else:
             place = f"{i + 1}."
         victory_mark = " 👑" if entry["victory"] else ""
-        print(f"  {place} {entry['name']} — {entry['score']} очков{victory_mark}")
+        score_str = paint(f"{entry['score']} очков", COLOR_YELLOW)
+        print(f"  {place} {entry['name']} — {score_str}{victory_mark}")
         diff = difficulty_name(entry.get("difficulty", "normal"))
         print(f"     Уровень {entry['level']}, убийств: {entry['kills']}, "
               f"золото: {entry['gold']}, сложность: {diff}")
@@ -590,38 +606,42 @@ def show_highscores():
 
 def look(room, monsters, npcs, player):
     """Осмотреться в комнате."""
-    print(f"\n📍 === {room['name']} ===")
+    print(f"\n📍 === {paint(room['name'], COLOR_BOLD + COLOR_BLUE)} ===")
     print(room["description"])
 
     if room.get("locked"):
-        print("\n🔒 Эта комната заперта! Нужен ключ.")
+        print("\n" + paint("🔒 Эта комната заперта! Нужен ключ.", COLOR_RED))
 
     if room["monster"]:
         monster = monsters[room["monster"]]
         if monster.get("is_final"):
-            print(f"\n☠️ ФИНАЛЬНЫЙ БОСС: {monster['emoji']} {monster['name']}!! "
-                  f"(HP: {monster['hp']}/{monster['max_hp']})")
-            print("   ☠️ Сильнейший враг подземелья! Запаситесь зельями!")
+            line = (f"☠️ ФИНАЛЬНЫЙ БОСС: {monster['emoji']} {monster['name']}!! "
+                    f"(HP: {monster['hp']}/{monster['max_hp']})")
+            print("\n" + paint(line, COLOR_BOLD + COLOR_RED))
+            print(paint("   ☠️ Сильнейший враг подземелья! Запаситесь зельями!", COLOR_RED))
         elif monster.get("is_boss"):
-            print(f"\n⚠️ МИНИ-БОСС: {monster['emoji']} {monster['name']}! "
-                  f"(HP: {monster['hp']}/{monster['max_hp']})")
-            print("   ☠️ Это очень опасный противник! Подготовьтесь перед боем.")
+            line = (f"⚠️ МИНИ-БОСС: {monster['emoji']} {monster['name']}! "
+                    f"(HP: {monster['hp']}/{monster['max_hp']})")
+            print("\n" + paint(line, COLOR_BOLD + COLOR_RED))
+            print(paint("   ☠️ Это очень опасный противник! Подготовьтесь перед боем.", COLOR_RED))
         else:
-            print(f"\n{monster['emoji']} Здесь находится {monster['name']}! "
-                  f"(HP: {monster['hp']}/{monster['max_hp']})")
+            line = (f"{monster['emoji']} Здесь находится {monster['name']}! "
+                    f"(HP: {monster['hp']}/{monster['max_hp']})")
+            print("\n" + paint(line, COLOR_RED))
 
     if room.get("npc"):
         npc = npcs[room["npc"]]
-        print(f"\n{npc['emoji']} Здесь находится {npc['name']}.")
-        print(f"   💬 \"{npc['dialogue']}\"")
+        print("\n" + paint(f"{npc['emoji']} Здесь находится {npc['name']}.", COLOR_MAGENTA))
+        print(paint(f"   💬 \"{npc['dialogue']}\"", COLOR_MAGENTA))
         print(f"   💡 Используйте 'talk {room['npc']}' для диалога.")
 
     if room["items"]:
-        print(f"\n🎒 Предметы на полу: {', '.join(room['items'])}")
+        items_str = ", ".join(room["items"])
+        print("\n" + paint(f"🎒 Предметы на полу: {items_str}", COLOR_GREEN))
 
     if room["exits"]:
         exits_str = ", ".join(room["exits"].keys())
-        print(f"🚪 Выходы: {exits_str}")
+        print(paint(f"🚪 Выходы: {exits_str}", COLOR_CYAN))
     
     # Подсказка о секретах
     if room.get("secret_exit") and not room.get("secret_found"):
@@ -629,8 +649,8 @@ def look(room, monsters, npcs, player):
     
     hp_percent = (player["hp"] / player["max_hp"]) * 100
     if hp_percent <= 30:
-        print(f"\n⚠️ ВНИМАНИЕ: Низкий уровень HP ({player['hp']}/{player['max_hp']})!")
-        print("   Используйте 'use зелье здоровья' или 'rest' для восстановления.")
+        print("\n" + paint(f"⚠️ ВНИМАНИЕ: Низкий уровень HP ({player['hp']}/{player['max_hp']})!", COLOR_BOLD + COLOR_RED))
+        print(paint("   Используйте 'use зелье здоровья' или 'rest' для восстановления.", COLOR_RED))
 
 
 def search_room(room, player):
@@ -644,8 +664,8 @@ def search_room(room, player):
         
         room["exits"][secret_dir] = secret_room
         
-        print(f"\n✨ Вы обнаружили секретный проход на {secret_dir}!")
-        print(f"   🚪 Новый выход добавлен: {secret_dir}")
+        print("\n" + paint(f"✨ Вы обнаружили секретный проход на {secret_dir}!", COLOR_BOLD + COLOR_MAGENTA))
+        print(paint(f"   🚪 Новый выход добавлен: {secret_dir}", COLOR_MAGENTA))
         return True
     else:
         messages = [
@@ -663,15 +683,15 @@ def take(item_name, player, room):
     if item_name in room["items"]:
         room["items"].remove(item_name)
         player["inventory"].append(item_name)
-        print(f"\n✅ Вы подобрали: {item_name}")
+        print("\n" + paint(f"✅ Вы подобрали: {item_name}", COLOR_GREEN))
     else:
-        print(f"\n❌ Здесь нет предмета '{item_name}'.")
+        print("\n" + paint(f"❌ Здесь нет предмета '{item_name}'.", COLOR_RED))
 
 
 def drop_item(item_name, player, room):
     """Выбросить предмет из инвентаря."""
     if item_name not in player["inventory"]:
-        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        print("\n" + paint(f"❌ У вас нет предмета '{item_name}'.", COLOR_RED))
         return
     
     player["inventory"].remove(item_name)
@@ -682,7 +702,7 @@ def drop_item(item_name, player, room):
 def use_item(item_name, player):
     """Использовать предмет из инвентаря."""
     if item_name not in player["inventory"]:
-        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        print("\n" + paint(f"❌ У вас нет предмета '{item_name}'.", COLOR_RED))
         return
 
     if item_name == "зелье здоровья":
@@ -691,8 +711,8 @@ def use_item(item_name, player):
         player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
         healed = player["hp"] - old_hp
         player["inventory"].remove(item_name)
-        print(f"\n💚 Вы выпили зелье и восстановили {healed} HP!")
-        print(f"   ❤️ Текущее HP: {player['hp']}/{player['max_hp']}")
+        print("\n" + paint(f"💚 Вы выпили зелье и восстановили {healed} HP!", COLOR_GREEN))
+        print(paint(f"   ❤️ Текущее HP: {player['hp']}/{player['max_hp']}", COLOR_GREEN))
     else:
         print(f"\n❓ Предмет '{item_name}' нельзя использовать.")
 
@@ -700,7 +720,7 @@ def use_item(item_name, player):
 def equip_item(item_name, player, items_db):
     """Экипировать предмет."""
     if item_name not in player["inventory"]:
-        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        print("\n" + paint(f"❌ У вас нет предмета '{item_name}'.", COLOR_RED))
         return
     
     if item_name not in items_db:
@@ -718,48 +738,48 @@ def equip_item(item_name, player, items_db):
     player["equipment"][item_type] = item_name
     player["inventory"].remove(item_name)
     
-    print(f"\n✅ Вы экипировали: {item_name}")
+    print("\n" + paint(f"✅ Вы экипировали: {item_name}", COLOR_GREEN))
     if item_type == "weapon":
-        print(f"   ⚔️ +{item_data['attack_bonus']} к атаке")
+        print(paint(f"   ⚔️ +{item_data['attack_bonus']} к атаке", COLOR_YELLOW))
     elif item_type == "armor":
-        print(f"   🛡️ +{item_data['defense_bonus']} к защите")
+        print(paint(f"   🛡️ +{item_data['defense_bonus']} к защите", COLOR_BLUE))
 
 
 def talk_to_npc(npc_key, player, npcs):
     """Поговорить с NPC."""
     if npc_key not in npcs:
-        print("\n❌ NPC не найден.")
+        print("\n" + paint("❌ NPC не найден.", COLOR_RED))
         return
     
     npc = npcs[npc_key]
-    print(f"\n{npc['emoji']} {npc['name']}: \"{npc['dialogue']}\"")
+    print("\n" + paint(f"{npc['emoji']} {npc['name']}: \"{npc['dialogue']}\"", COLOR_MAGENTA))
     
     if "quests" in npc:
         for quest_id, quest_data in npc["quests"].items():
             if quest_id not in player["quests"]:
-                print(f"\n📜 Доступен квест: {quest_data['name']}")
+                print("\n" + paint(f"📜 Доступен квест: {quest_data['name']}", COLOR_BOLD + COLOR_MAGENTA))
                 print(f"   {quest_data['description']}")
-                print(f"   Награда: {quest_data['reward_gold']} золота, {quest_data['reward_exp']} опыта")
+                print(paint(f"   Награда: {quest_data['reward_gold']} золота, {quest_data['reward_exp']} опыта", COLOR_YELLOW))
                 accept = input("\nПринять квест? (да/нет): ").strip().lower()
                 if accept == "да":
                     player["quests"][quest_id] = {
                         "progress": 0,
                         "completed": False
                     }
-                    print(f"\n✅ Квест принят! {quest_data['dialogue_accept']}")
+                    print("\n" + paint(f"✅ Квест принят! {quest_data['dialogue_accept']}", COLOR_GREEN))
                 else:
                     print("\n❌ Квест отклонён.")
             else:
                 quest_progress = player["quests"][quest_id]
                 if quest_progress["completed"]:
-                    print(f"\n✅ Квест '{quest_data['name']}' уже выполнен!")
+                    print("\n" + paint(f"✅ Квест '{quest_data['name']}' уже выполнен!", COLOR_GREEN))
                     print(f"   {quest_data['dialogue_complete']}")
                     if not quest_progress.get("rewarded"):
                         player["gold"] += quest_data["reward_gold"]
                         player["experience"] += quest_data["reward_exp"]
                         quest_progress["rewarded"] = True
-                        print(f"   💰 +{quest_data['reward_gold']} золота")
-                        print(f"   ⭐ +{quest_data['reward_exp']} опыта")
+                        print(paint(f"   💰 +{quest_data['reward_gold']} золота", COLOR_YELLOW))
+                        print(paint(f"   ⭐ +{quest_data['reward_exp']} опыта", COLOR_YELLOW))
                         check_level_up(player)
                 else:
                     print(f"\n📜 Квест в процессе: {quest_data['name']}")
@@ -768,7 +788,7 @@ def talk_to_npc(npc_key, player, npcs):
 
 def show_quests(player, npcs):
     """Показать активные квесты."""
-    print("\n📜 === АКТИВНЫЕ КВЕСТЫ ===")
+    print("\n" + paint("📜 === АКТИВНЫЕ КВЕСТЫ ===", COLOR_BOLD + COLOR_MAGENTA))
     
     if not player["quests"]:
         print("  Нет активных квестов.")
@@ -788,14 +808,14 @@ def show_quests(player, npcs):
             print(f"  {quest_data['description']}")
             print(f"  Прогресс: {quest_progress['progress']}/{quest_data['count']}")
             if quest_progress["completed"] and not quest_progress.get("rewarded"):
-                print(f"  💡 Вернитесь к NPC за наградой!")
+                print(paint(f"  💡 Вернитесь к NPC за наградой!", COLOR_YELLOW))
 
 
 def rest(player, room, monsters, items_db):
     """Отдохнуть и восстановить HP."""
     if room["monster"]:
         monster = monsters[room["monster"]]
-        print(f"\n❌ Нельзя отдыхать! {monster['name']} рядом!")
+        print("\n" + paint(f"❌ Нельзя отдыхать! {monster['name']} рядом!", COLOR_RED))
         return False
     
     if player["hp"] >= player["max_hp"]:
@@ -805,7 +825,7 @@ def rest(player, room, monsters, items_db):
     print("\n😴 Вы присели отдохнуть...")
     
     if random.randint(1, 100) <= 30:
-        print("⚠️ Вас кто-то потревожил!")
+        print(paint("⚠️ Вас кто-то потревожил!", COLOR_RED))
         damage = random.randint(3, 7)
         
         armor_bonus = 0
@@ -819,12 +839,12 @@ def rest(player, room, monsters, items_db):
         if total_defense > 0:
             absorbed = damage - actual_damage
             if absorbed > 0:
-                print(f"   🛡️ Защита поглотила {absorbed} урона!")
-        print(f"   💥 Вы получили {actual_damage} урона!")
-        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+                print(paint(f"   🛡️ Защита поглотила {absorbed} урона!", COLOR_BLUE))
+        print(paint(f"   💥 Вы получили {actual_damage} урона!", COLOR_RED))
+        print(paint(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
         
         if player["hp"] <= 0:
-            print("\n💀 Вы погибли во время отдыха...")
+            print("\n" + paint("💀 Вы погибли во время отдыха...", COLOR_BOLD + COLOR_RED))
             return "dead"
         
         return False
@@ -834,8 +854,8 @@ def rest(player, room, monsters, items_db):
     player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
     healed = player["hp"] - old_hp
     
-    print(f"💚 Вы отдохнули и восстановили {healed} HP!")
-    print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
+    print(paint(f"💚 Вы отдохнули и восстановили {healed} HP!", COLOR_GREEN))
+    print(paint(f"   ❤️ HP: {player['hp']}/{player['max_hp']}", COLOR_GREEN))
     return True
 
 
@@ -846,40 +866,40 @@ def trigger_random_event(player):
     
     event_roll = random.randint(1, 100)
     
-    print("\n" + "✨" * 20)
+    print("\n" + paint("✨" * 20, COLOR_MAGENTA))
     
     if event_roll <= 20:
         gold_found = random.randint(8, 20)
         player["gold"] += gold_found
-        print(f"💰 Вы нашли {gold_found} золота в трещине стены!")
+        print(paint(f"💰 Вы нашли {gold_found} золота в трещине стены!", COLOR_YELLOW))
     
     elif event_roll <= 35:
         trap_damage = random.randint(5, 12)
         player["hp"] -= trap_damage
-        print(f"⚠️ Вы наступили на скрытую ловушку и получили {trap_damage} урона!")
-        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+        print(paint(f"⚠️ Вы наступили на скрытую ловушку и получили {trap_damage} урона!", COLOR_RED))
+        print(paint(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
         
         if player["hp"] <= 0:
-            print("\n💀 Вы погибли от ловушки...")
+            print("\n" + paint("💀 Вы погибли от ловушки...", COLOR_BOLD + COLOR_RED))
             return "dead"
     
     elif event_roll <= 50:
         player["inventory"].append("зелье здоровья")
-        print("🧪 Вы обнаружили тайник с зельем здоровья!")
+        print(paint("🧪 Вы обнаружили тайник с зельем здоровья!", COLOR_GREEN))
     
     elif event_roll <= 65:
         heal_amount = random.randint(15, 30)
         old_hp = player["hp"]
         player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
         healed = player["hp"] - old_hp
-        print(f"✨ Таинственная сила исцелила вас на {healed} HP!")
-        print(f"   ❤️ HP: {player['hp']}/{player['max_hp']}")
+        print(paint(f"✨ Таинственная сила исцелила вас на {healed} HP!", COLOR_GREEN))
+        print(paint(f"   ❤️ HP: {player['hp']}/{player['max_hp']}", COLOR_GREEN))
     
     elif event_roll <= 75:
         items_found = ["кость", "паутина", "древний амулет"]
         found_item = random.choice(items_found)
         player["inventory"].append(found_item)
-        print(f"📦 Вы нашли {found_item} среди обломков!")
+        print(paint(f"📦 Вы нашли {found_item} среди обломков!", COLOR_GREEN))
     
     elif event_roll <= 85:
         messages = [
@@ -887,17 +907,17 @@ def trigger_random_event(player):
             "👻 Тень мелькнула в углу комнаты...",
             "👻 Вы услышали шёпот из прошлого..."
         ]
-        print(random.choice(messages))
+        print(paint(random.choice(messages), COLOR_MAGENTA))
         print("   ...но он исчез так же быстро, как появился.")
     
     elif event_roll <= 95:
         fall_damage = random.randint(2, 5)
         player["hp"] -= fall_damage
-        print(f"🕳️ Вы провалились в яму и получили {fall_damage} урона!")
-        print(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}")
+        print(paint(f"🕳️ Вы провалились в яму и получили {fall_damage} урона!", COLOR_RED))
+        print(paint(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
         
         if player["hp"] <= 0:
-            print("\n💀 Вы погибли от падения...")
+            print("\n" + paint("💀 Вы погибли от падения...", COLOR_BOLD + COLOR_RED))
             return "dead"
     
     else:
@@ -910,29 +930,29 @@ def trigger_random_event(player):
             "Старая свеча внезапно зажглась в нише.",
             "🌫️ Туман сгущается вокруг вас..."
         ]
-        print(f"🌫️ {random.choice(messages)}")
+        print(paint(f"🌫️ {random.choice(messages)}", COLOR_CYAN))
     
-    print("✨" * 20)
+    print(paint("✨" * 20, COLOR_MAGENTA))
     return None
 
 
 def show_shop(npc, items_db, player):
     """Показать магазин торговца."""
-    print(f"\n🏪 === МАГАЗИН {npc['name'].upper()} ===")
-    print(f"💰 Ваше золото: {player['gold']}\n")
+    print("\n" + paint(f"🏪 === МАГАЗИН {npc['name'].upper()} ===", COLOR_BOLD + COLOR_YELLOW))
+    print(paint(f"💰 Ваше золото: {player['gold']}", COLOR_YELLOW))
     
-    print("  📦 ПОКУПКА:")
+    print("\n  📦 ПОКУПКА:")
     for item_name in npc["shop"]:
         if item_name in items_db:
             item = items_db[item_name]
             price = item.get("price", 0)
             print(f"  • {item_name} — {price} золота")
             if item["type"] == "weapon":
-                print(f"    ⚔️ +{item['attack_bonus']} к атаке")
+                print(paint(f"    ⚔️ +{item['attack_bonus']} к атаке", COLOR_YELLOW))
             elif item["type"] == "armor":
-                print(f"    🛡️ +{item['defense_bonus']} к защите")
+                print(paint(f"    🛡️ +{item['defense_bonus']} к защите", COLOR_BLUE))
             elif item["type"] == "consumable":
-                print(f"    💚 Восстанавливает {item['heal_amount']} HP")
+                print(paint(f"    💚 Восстанавливает {item['heal_amount']} HP", COLOR_GREEN))
     
     print("\n  💸 ПРОДАЖА (ваши предметы):")
     sellable_items = {}
@@ -954,7 +974,7 @@ def show_shop(npc, items_db, player):
 def buy_item(item_name, player, npc, items_db):
     """Купить предмет у торговца."""
     if item_name not in npc["shop"]:
-        print(f"\n❌ Торговец не продаёт '{item_name}'.")
+        print("\n" + paint(f"❌ Торговец не продаёт '{item_name}'.", COLOR_RED))
         return
     
     if item_name not in items_db:
@@ -965,23 +985,23 @@ def buy_item(item_name, player, npc, items_db):
     price = item.get("price", 0)
     
     if player["gold"] < price:
-        print(f"\n❌ Недостаточно золота! Нужно {price}, у вас {player['gold']}.")
+        print("\n" + paint(f"❌ Недостаточно золота! Нужно {price}, у вас {player['gold']}.", COLOR_RED))
         return
     
     player["gold"] -= price
     player["inventory"].append(item_name)
-    print(f"\n✅ Вы купили {item_name} за {price} золота!")
-    print(f"   💰 Осталось золота: {player['gold']}")
+    print("\n" + paint(f"✅ Вы купили {item_name} за {price} золота!", COLOR_GREEN))
+    print(paint(f"   💰 Осталось золота: {player['gold']}", COLOR_YELLOW))
 
 
 def sell_item(item_name, player, npc, items_db):
     """Продать предмет торговцу."""
     if not player["inventory"]:
-        print("\n❌ Ваш инвентарь пуст.")
+        print("\n" + paint("❌ Ваш инвентарь пуст.", COLOR_RED))
         return
     
     if item_name not in player["inventory"]:
-        print(f"\n❌ У вас нет предмета '{item_name}'.")
+        print("\n" + paint(f"❌ У вас нет предмета '{item_name}'.", COLOR_RED))
         return
     
     if item_name not in items_db or "sell_price" not in items_db[item_name]:
@@ -992,20 +1012,20 @@ def sell_item(item_name, player, npc, items_db):
     player["inventory"].remove(item_name)
     player["gold"] += sell_price
     
-    print(f"\n✅ Вы продали {item_name} за {sell_price} золота!")
-    print(f"   💰 Теперь у вас: {player['gold']} золота")
+    print("\n" + paint(f"✅ Вы продали {item_name} за {sell_price} золота!", COLOR_GREEN))
+    print(paint(f"   💰 Теперь у вас: {player['gold']} золота", COLOR_YELLOW))
 
 
 def show_inventory(player):
     """Показать инвентарь."""
     print("\n🎒 === ИНВЕНТАРЬ ===")
-    print(f"  💰 Золото: {player['gold']}")
+    print(paint(f"  💰 Золото: {player['gold']}", COLOR_YELLOW))
     print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
     print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
     print("\n  Предметы:")
     if player["inventory"]:
         for item in player["inventory"]:
-            print(f"  • {item}")
+            print(paint(f"  • {item}", COLOR_GREEN))
     else:
         print("  Пусто")
 
@@ -1030,19 +1050,19 @@ def show_stats(player, items_db):
     print(f"  ⭐ Уровень: {player['level']}")
     print(f"  ✨ Опыт: {player['experience']}/{needed}")
     print(f"  ❤️  HP: {player['hp']}/{player['max_hp']}")
-    print(f"  ⚔️  Атака: {total_attack} ({player['attack']} + {weapon_bonus})")
-    print(f"  🛡️  Защита: {total_defense} ({player['defense']} + {armor_bonus})")
-    print(f"  💰 Золото: {player['gold']}")
+    print(paint(f"  ⚔️  Атака: {total_attack} ({player['attack']} + {weapon_bonus})", COLOR_YELLOW))
+    print(paint(f"  🛡️  Защита: {total_defense} ({player['defense']} + {armor_bonus})", COLOR_BLUE))
+    print(paint(f"  💰 Золото: {player['gold']}", COLOR_YELLOW))
     print(f"  💀 Убийств: {player['kills']}")
     if player["victory"]:
-        print(f"  👑 Подземелье пройдено: ДА")
+        print(paint(f"  👑 Подземелье пройдено: ДА", COLOR_BOLD + COLOR_YELLOW))
     print(f"  🗡️  Оружие: {player['equipment']['weapon'] or 'нет'}")
     print(f"  🛡️  Броня: {player['equipment']['armor'] or 'нет'}")
 
 
 def show_help():
     """Показать справку по командам."""
-    print("\n❓ === ДОСТУПНЫЕ КОМАНДЫ ===")
+    print("\n" + paint("❓ === ДОСТУПНЫЕ КОМАНДЫ ===", COLOR_BOLD + COLOR_CYAN))
     print("\n  🚶 ПЕРЕМЕЩЕНИЕ:")
     print("    look          — осмотреться")
     print("    go <напр>     — идти (north/south/east/west)")
@@ -1086,9 +1106,9 @@ def clear_screen():
 
 def show_victory_screen(player):
     """Показать экран победы после победы над финальным боссом."""
-    print("\n" + "👑" * 20)
-    print("   П О Б Е Д А !")
-    print("👑" * 20)
+    print("\n" + paint("👑" * 20, COLOR_YELLOW))
+    print(paint("   П О Б Е Д А !", COLOR_BOLD + COLOR_YELLOW))
+    print(paint("👑" * 20, COLOR_YELLOW))
     print(f"\n   🎉 Герой {player['name']} поверг Короля Скелетов!")
     print("   Подземелье освобождено от древнего зла.")
     print("   Барды будут слагать песни о твоём подвиге!")
@@ -1096,34 +1116,34 @@ def show_victory_screen(player):
     print(f"   ⚙️  Сложность: {difficulty_name(player.get('difficulty', 'normal'))}")
     print(f"   ⭐ Уровень героя: {player['level']}")
     print(f"   💀 Монстров убито: {player['kills']}")
-    print(f"   💰 Золота собрано: {player['gold']}")
+    print(paint(f"   💰 Золота собрано: {player['gold']}", COLOR_YELLOW))
     print(f"   ❤️ Остаток HP: {player['hp']}/{player['max_hp']}")
     print(f"   🎒 Предметов в инвентаре: {len(player['inventory'])}")
 
     save_highscore(player)
-    print(f"\n   🏆 Результат сохранён в таблице рекордов!")
+    print("\n" + paint("   🏆 Результат сохранён в таблице рекордов!", COLOR_YELLOW))
 
     print(f"\n   🎁 Подземелье остаётся открытым для свободной игры:")
     print("   добейте монстров, соберите сокровища или сдайте квесты.")
     print("   Введите 'quit', чтобы завершить поход.")
-    print("\n" + "👑" * 20)
+    print("\n" + paint("👑" * 20, COLOR_YELLOW))
 
 
 def show_death_stats(player):
     """Показать статистику при смерти."""
-    print("\n" + "💀" * 20)
-    print("   ВЫ ПОГИБЛИ В ПОДЗЕМЕЛЬЕ")
-    print("💀" * 20)
+    print("\n" + paint("💀" * 20, COLOR_RED))
+    print(paint("   ВЫ ПОГИБЛИ В ПОДЗЕМЕЛЬЕ", COLOR_BOLD + COLOR_RED))
+    print(paint("💀" * 20, COLOR_RED))
     print(f"\n📊 СТАТИСТИКА ЗА СЕССИЮ:")
     print(f"  Имя: {player['name']}")
     print(f"  Сложность: {difficulty_name(player.get('difficulty', 'normal'))}")
     print(f"  Уровень: {player['level']}")
     print(f"  Убито монстров: {player['kills']}")
-    print(f"  Собрано золота: {player['gold']}")
-    print(f"  Финальный HP: {player['hp']}/{player['max_hp']}")
+    print(paint(f"  Собрано золота: {player['gold']}", COLOR_YELLOW))
+    print(paint(f"  Финальный HP: {player['hp']}/{player['max_hp']}", COLOR_RED))
 
     save_highscore(player)
-    print(f"\n🏆 Результат сохранён в таблице рекордов!")
+    print("\n" + paint("🏆 Результат сохранён в таблице рекордов!", COLOR_YELLOW))
     print("\n👋 Спасибо за игру!")
 
 
@@ -1132,9 +1152,9 @@ def show_quit_stats(player):
     print(f"\n📊 КРАТКАЯ СТАТИСТИКА:")
     print(f"  Уровень: {player['level']}")
     print(f"  Убито монстров: {player['kills']}")
-    print(f"  Золото: {player['gold']}")
+    print(paint(f"  Золото: {player['gold']}", COLOR_YELLOW))
     if player["victory"]:
-        print(f"  👑 Подземелье пройдено: ДА")
+        print(paint(f"  👑 Подземелье пройдено: ДА", COLOR_BOLD + COLOR_YELLOW))
 
 
 def check_quest_progress(player, monster_key, npcs):
@@ -1155,7 +1175,7 @@ def check_quest_progress(player, monster_key, npcs):
             
             if quest_progress["progress"] >= quest_data["count"]:
                 quest_progress["completed"] = True
-                print(f"   ✅ Квест выполнен! Вернитесь к NPC за наградой.")
+                print(paint("   ✅ Квест выполнен! Вернитесь к NPC за наградой.", COLOR_GREEN))
 
 
 def drop_loot(monster, player):
@@ -1179,15 +1199,15 @@ def drop_loot(monster, player):
     if total_gold > 0 or items_dropped:
         print("\n🎁 Лут:")
         if total_gold > 0:
-            print(f"   💰 +{total_gold} золота")
+            print(paint(f"   💰 +{total_gold} золота", COLOR_YELLOW))
         for item in items_dropped:
-            print(f"   📦 +1x {item}")
+            print(paint(f"   📦 +1x {item}", COLOR_GREEN))
 
 
 def attack(player, room, monsters, items_db, npcs):
     """Атаковать монстра в комнате."""
     if not room["monster"]:
-        print("\n❌ Здесь некого атаковать.")
+        print("\n" + paint("❌ Здесь некого атаковать.", COLOR_RED))
         return False
 
     monster_key = room["monster"]
@@ -1204,33 +1224,33 @@ def attack(player, room, monsters, items_db, npcs):
     
     if is_crit:
         player_damage = base_damage * 2
-        print(f"\n💥 КРИТИЧЕСКИЙ УДАР! Вы нанесли {player_damage} урона!")
+        print("\n" + paint(f"💥 КРИТИЧЕСКИЙ УДАР! Вы нанесли {player_damage} урона!", COLOR_BOLD + COLOR_RED))
     else:
         player_damage = max(1, base_damage)
         print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона.")
 
     monster["hp"] -= player_damage
-    print(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}")
+    print(paint(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}", COLOR_RED))
 
     if monster["hp"] <= 0:
-        print(f"\n🎉 Вы победили {monster['name']}!")
+        print("\n" + paint(f"🎉 Вы победили {monster['name']}!", COLOR_BOLD + COLOR_GREEN))
         
         # Особые сообщения для боссов
         if monster.get("is_final"):
-            print("\n" + "👑" * 15)
-            print("   ФИНАЛЬНЫЙ БОСС ПОВЕРЖЕН!")
-            print("   Король Скелетов пал. Подземелье освобождено от зла!")
-            print("👑" * 15)
+            print("\n" + paint("👑" * 15, COLOR_YELLOW))
+            print(paint("   ФИНАЛЬНЫЙ БОСС ПОВЕРЖЕН!", COLOR_BOLD + COLOR_YELLOW))
+            print(paint("   Король Скелетов пал. Подземелье освобождено от зла!", COLOR_YELLOW))
+            print(paint("👑" * 15, COLOR_YELLOW))
             player["victory"] = True
         elif monster.get("is_boss"):
-            print("\n" + "🏆" * 15)
-            print("   МИНИ-БОСС ПОВЕРЖЕН!")
-            print("   Подземелье содрогнулось от вашего удара!")
-            print("🏆" * 15)
+            print("\n" + paint("🏆" * 15, COLOR_YELLOW))
+            print(paint("   МИНИ-БОСС ПОВЕРЖЕН!", COLOR_BOLD + COLOR_YELLOW))
+            print(paint("   Подземелье содрогнулось от вашего удара!", COLOR_YELLOW))
+            print(paint("🏆" * 15, COLOR_YELLOW))
         
         player["experience"] += monster["experience"]
         player["kills"] += 1
-        print(f"   ⭐ Получено опыта: {monster['experience']}")
+        print(paint(f"   ⭐ Получено опыта: {monster['experience']}", COLOR_YELLOW))
         print(f"   ⭐ Всего опыта: {player['experience']}/"
               f"{experience_to_next_level(player['level'])}")
         
@@ -1256,9 +1276,9 @@ def attack(player, room, monsters, items_db, npcs):
     if total_defense > 0:
         absorbed = raw_monster_damage - monster_damage
         if absorbed > 0:
-            print(f"\n🛡️ Защита поглотила {absorbed} урона!")
-    print(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.")
-    print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
+            print("\n" + paint(f"🛡️ Защита поглотила {absorbed} урона!", COLOR_BLUE))
+    print(paint(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.", COLOR_RED))
+    print(paint(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
 
     if player["hp"] <= 0:
         return "dead"
@@ -1269,14 +1289,14 @@ def attack(player, room, monsters, items_db, npcs):
 def flee(player, room, rooms, monsters, items_db, current_room_name):
     """Попытаться сбежать из боя."""
     if not room["monster"]:
-        print("\n❌ Здесь некого бежать — монстра нет.")
+        print("\n" + paint("❌ Здесь некого бежать — монстра нет.", COLOR_RED))
         return current_room_name
 
     monster = monsters[room["monster"]]
     print(f"\n🏃 Вы пытаетесь сбежать от {monster['name']}...")
 
     if random.randint(1, 100) <= 50:
-        print("✅ Побег успешен!")
+        print(paint("✅ Побег успешен!", COLOR_GREEN))
         
         exits = list(room["exits"].keys())
         if exits:
@@ -1288,7 +1308,7 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
             print("   ❌ Но вам некуда бежать! Вы заперты.")
             return current_room_name
     else:
-        print("❌ Побег не удался!")
+        print(paint("❌ Побег не удался!", COLOR_RED))
         
         armor_bonus = 0
         if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
@@ -1300,9 +1320,9 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
         player["hp"] -= backstab_damage
         
         if total_defense > 0:
-            print(f"   🛡️ Защита поглотила часть урона!")
-        print(f"   💥 {monster['name']} бьёт вас в спину и наносит {backstab_damage} урона!")
-        print(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}")
+            print(paint("   🛡️ Защита поглотила часть урона!", COLOR_BLUE))
+        print(paint(f"   💥 {monster['name']} бьёт вас в спину и наносит {backstab_damage} урона!", COLOR_RED))
+        print(paint(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
         
         if player["hp"] <= 0:
             return "dead"
@@ -1319,11 +1339,11 @@ def move(current_room_name, direction, rooms, monsters, player):
         
         if new_room.get("locked"):
             if "железный ключ" in player["inventory"]:
-                print("\n🔑 Вы использовали железный ключ и открыли дверь!")
+                print("\n" + paint("🔑 Вы использовали железный ключ и открыли дверь!", COLOR_GREEN))
                 player["inventory"].remove("железный ключ")
                 new_room["locked"] = False
             else:
-                print("\n🔒 Дверь заперта! Нужен железный ключ.")
+                print("\n" + paint("🔒 Дверь заперта! Нужен железный ключ.", COLOR_RED))
                 return current_room_name
         
         event_result = trigger_random_event(player)
@@ -1332,7 +1352,7 @@ def move(current_room_name, direction, rooms, monsters, player):
         
         return new_room_name
     else:
-        print(f"\n❌ Туда нельзя пройти на {direction}.")
+        print("\n" + paint(f"❌ Туда нельзя пройти на {direction}.", COLOR_RED))
         return current_room_name
 
 
@@ -1444,20 +1464,23 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             print("\n👋 До свидания!")
             break
         else:
-            print("❓ Неизвестная команда. Введите 'help' для списка команд.")
+            print(paint("❓ Неизвестная команда. Введите 'help' для списка команд.", COLOR_RED))
 
 
 def main():
     """Главный цикл игры."""
+    # Включаем поддержку ANSI-цветов в консоли Windows
+    os.system("")
+
     while True:
         show_menu()
         choice = input("\nВыберите действие: ").strip()
 
         if choice == "1":
-            difficulty = choose_difficulty()  # НОВОЕ: выбор сложности
+            difficulty = choose_difficulty()
             player = create_player(difficulty)
             rooms = create_rooms()
-            monsters = create_monsters(difficulty)  # НОВОЕ: монстры по сложности
+            monsters = create_monsters(difficulty)
             items_db = create_items_db()
             npcs = create_npcs()
             current_room_name = "cave"
@@ -1465,7 +1488,7 @@ def main():
         elif choice == "2":
             player, rooms, current_room_name = load_game()
             if player:
-                monsters = create_monsters(player.get("difficulty", "normal"))  # НОВОЕ
+                monsters = create_monsters(player.get("difficulty", "normal"))
                 items_db = create_items_db()
                 npcs = create_npcs()
                 game_loop(player, rooms, monsters, items_db, npcs, current_room_name)
@@ -1480,3 +1503,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
