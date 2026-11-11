@@ -80,7 +80,7 @@ def use_item(item_name, player):
     """Использовать предмет из инвентаря."""
     if item_name not in player["inventory"]:
         print("\n" + paint(f"❌ У вас нет предмета '{item_name}'.", COLOR_RED))
-        return
+        return False
 
     if item_name == "зелье здоровья":
         heal_amount = 30
@@ -90,8 +90,10 @@ def use_item(item_name, player):
         player["inventory"].remove(item_name)
         print("\n" + paint(f"💚 Вы выпили зелье и восстановили {healed} HP!", COLOR_GREEN))
         print(paint(f"   ❤️ Текущее HP: {player['hp']}/{player['max_hp']}", COLOR_GREEN))
+        return True
     else:
         print(f"\n❓ Предмет '{item_name}' нельзя использовать.")
+        return False
 
 
 def equip_item(item_name, player, items_db):

@@ -33,6 +33,28 @@ def drop_loot(monster, player):
         for item in items_dropped:
             print(paint(f"   📦 +1x {item}", COLOR_GREEN))
 
+def monster_counterattack(player, monster, items_db):
+    """Ответный удар монстра. Возвращает 'dead', если игрок погиб."""
+    armor_bonus = 0
+    if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
+        armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+
+    total_defense = player["defense"] + armor_bonus
+    raw_monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
+    monster_damage = max(1, raw_monster_damage - total_defense)
+
+    player["hp"] -= monster_damage
+
+    if total_defense > 0:
+        absorbed = raw_monster_damage - monster_damage
+        if absorbed > 0:
+            print("\n" + paint(f"🛡️ Защита поглотила {absorbed} урона!", COLOR_BLUE))
+    print(paint(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.", COLOR_RED))
+    print(paint(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
+
+    if player["hp"] <= 0:
+        return "dead"
+    return False
 
 def check_quest_progress(player, monster_key, npcs):
     """Проверить прогресс квестов при убийстве монстра."""
@@ -81,6 +103,7 @@ def attack(player, room, monsters, items_db, npcs):
         print(f"\n⚔️ Вы ударили {monster['name']} и нанесли {player_damage} урона.")
 
     monster["hp"] -= player_damage
+    room["monster_hp"] = monster["hp"]
     print(paint(f"   {monster['emoji']} HP монстра: {max(0, monster['hp'])}/{monster['max_hp']}", COLOR_RED))
 
     if monster["hp"] <= 0:
@@ -109,31 +132,11 @@ def attack(player, room, monsters, items_db, npcs):
         drop_loot(monster, player)
 
         room["monster"] = None
+        room["monster_hp"] = None
         check_level_up(player)
         return True
 
-    armor_bonus = 0
-    if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
-        armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
-
-    total_defense = player["defense"] + armor_bonus
-
-    raw_monster_damage = random.randint(monster["attack"] - 1, monster["attack"] + 1)
-    monster_damage = max(1, raw_monster_damage - total_defense)
-
-    player["hp"] -= monster_damage
-
-    if total_defense > 0:
-        absorbed = raw_monster_damage - monster_damage
-        if absorbed > 0:
-            print("\n" + paint(f"🛡️ Защита поглотила {absorbed} урона!", COLOR_BLUE))
-    print(paint(f"🩸 {monster['name']} атакует вас и наносит {monster_damage} урона.", COLOR_RED))
-    print(paint(f"   ❤️ Ваше HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
-
-    if player["hp"] <= 0:
-        return "dead"
-
-    return False
+        return monster_counterattack(player, monster, items_db) 
 
 
 def flee(player, room, rooms, monsters, items_db, current_room_name):
@@ -148,7 +151,8 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
     if random.randint(1, 100) <= 50:
         print(paint("✅ Побег успешен!", COLOR_GREEN))
 
-        exits = list(room["exits"].keys())
+        exits = [d for d in room["exits"].keys()
+                if not rooms[room["exits"][d]].get("locked")]
         if exits:
             escape_direction = random.choice(exits)
             new_room_name = room["exits"][escape_direction]

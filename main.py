@@ -10,9 +10,10 @@ from src.player import (
 from src.world import (
     create_rooms, create_monsters, create_items_db, create_npcs,
     save_game, load_game, look, search_room, take, drop_item, move,
-    talk_to_npc, show_quests, show_shop, buy_item, sell_item
+    talk_to_npc, show_quests, show_shop, buy_item, sell_item,
+    restore_monster_hp
 )
-from src.combat import attack, flee
+from src.combat import attack, flee, monster_counterattack
 
 
 def show_menu():
@@ -94,7 +95,14 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             drop_item(item_name, player, rooms[current_room_name])
         elif command.startswith("use "):
             item_name = command[4:].strip()
-            use_item(item_name, player)
+            used = use_item(item_name, player)
+            if used and rooms[current_room_name]["monster"]:
+                monster = monsters[rooms[current_room_name]["monster"]]
+                print(paint(f"⏳ Пока вы пили зелье, {monster['name']} атакует!", COLOR_RED))
+                result = monster_counterattack(player, monster, items_db)
+                if result == "dead":
+                    show_death_stats(player)
+                    break
         elif command.startswith("equip "):
             item_name = command[6:].strip()
             equip_item(item_name, player, items_db)
@@ -198,6 +206,7 @@ def main():
             player, rooms, current_room_name = load_game()
             if player:
                 monsters = create_monsters(player.get("difficulty", "normal"))
+                restore_monster_hp(rooms, monsters)
                 items_db = create_items_db()
                 npcs = create_npcs()
                 game_loop(player, rooms, monsters, items_db, npcs, current_room_name)

@@ -767,3 +767,11 @@ def sell_item(item_name, player, npc, items_db):
 
     print("\n" + paint(f"✅ Вы продали {item_name} за {sell_price} золота!", COLOR_GREEN))
     print(paint(f"   💰 Теперь у вас: {player['gold']} золота", COLOR_YELLOW))
+
+def restore_monster_hp(rooms, monsters):
+    """Восстановить HP монстров из сохранения."""
+    for room in rooms.values():
+        if room.get("monster") and room.get("monster_hp") is not None:
+            key = room["monster"]
+            if key in monsters:
+                monsters[key]["hp"] = room["monster_hp"]
