@@ -344,6 +344,7 @@ def create_npcs():
             "shop": ["зелье здоровья", "ржавый нож", "кожаная броня", "ржавый меч", "щит стражника"],
             "quests": {
                 "rat_hunter": {
+                    "type": "kill",
                     "name": "Охотник на крыс",
                     "description": "Крысы в тоннеле мешают мне спать. Убей 3 гигантских крыс.",
                     "target": "rat",
@@ -352,11 +353,24 @@ def create_npcs():
                     "reward_exp": 30,
                     "dialogue_accept": "Отлично! Крысы находятся в узком тоннеле на юге отсюда.",
                     "dialogue_complete": "Спасибо! Теперь я могу спокойно спать. Вот твоя награда."
+                },
+                "weaver_order": {
+                    "type": "collect",
+                    "name": "Заказ ткача",
+                    "description": "Мне нужно заштопать плащ. Принеси 2 паутины из паучьего гнезда.",
+                    "target_item": "паутина",
+                    "count": 2,
+                    "reward_gold": 40,
+                    "reward_exp": 25,
+                    "dialogue_accept": "Паутину собирай с пещерных пауков, они водятся к востоку от тоннеля.",
+                    "dialogue_complete": "Отличная паутина! Теперь плащ переживёт ещё зиму. Держи плату."
                 }
             }
         }
     }
     return npcs
+
+
 
 
 def save_game(player, rooms, current_room_name):
@@ -649,17 +663,35 @@ def talk_to_npc(npc_key, player, npcs):
                     print("\n❌ Квест отклонён.")
             else:
                 quest_progress = player["quests"][quest_id]
-                if quest_progress["completed"]:
-                    print("\n" + paint(f"✅ Квест '{quest_data['name']}' уже выполнен!", COLOR_GREEN))
+
+                # Квест ещё не выполнен
+                if not quest_progress["completed"]:
+                    # Тип "collect": сдаём предметы из инвентаря
+                    if quest_data.get("type") == "collect":
+                        item = quest_data["target_item"]
+                        need = quest_data["count"] - quest_progress["progress"]
+                        have = player["inventory"].count(item)
+                        give = min(need, have)
+                        if give > 0:
+                            for _ in range(give):
+                                player["inventory"].remove(item)
+                            quest_progress["progress"] += give
+                            print(paint(f"   📦 Вы передали: {item} x{give}", COLOR_GREEN))
+                    # Проверяем, выполнен ли квест
+                    if quest_progress["progress"] >= quest_data["count"]:
+                        quest_progress["completed"] = True
+                        print(paint(f"   ✅ Квест '{quest_data['name']}' выполнен!", COLOR_GREEN))
+
+                # Выдача награды (один раз)
+                if quest_progress["completed"] and not quest_progress.get("rewarded"):
                     print(f"   {quest_data['dialogue_complete']}")
-                    if not quest_progress.get("rewarded"):
-                        player["gold"] += quest_data["reward_gold"]
-                        player["experience"] += quest_data["reward_exp"]
-                        quest_progress["rewarded"] = True
-                        print(paint(f"   💰 +{quest_data['reward_gold']} золота", COLOR_YELLOW))
-                        print(paint(f"   ⭐ +{quest_data['reward_exp']} опыта", COLOR_YELLOW))
-                        check_level_up(player)
-                else:
+                    player["gold"] += quest_data["reward_gold"]
+                    player["experience"] += quest_data["reward_exp"]
+                    quest_progress["rewarded"] = True
+                    print(paint(f"   💰 +{quest_data['reward_gold']} золота", COLOR_YELLOW))
+                    print(paint(f"   ⭐ +{quest_data['reward_exp']} опыта", COLOR_YELLOW))
+                    check_level_up(player)
+                elif not quest_progress["completed"]:
                     print(f"\n📜 Квест в процессе: {quest_data['name']}")
                     print(f"   Прогресс: {quest_progress['progress']}/{quest_data['count']}")
 
@@ -685,6 +717,9 @@ def show_quests(player, npcs):
             print(f"\n  {status} — {quest_data['name']}")
             print(f"  {quest_data['description']}")
             print(f"  Прогресс: {quest_progress['progress']}/{quest_data['count']}")
+            if quest_data.get("type") == "collect":
+                have = player["inventory"].count(quest_data["target_item"])
+                print(f"  🎒 В инвентаре: {quest_data['target_item']} x{have}")
             if quest_progress["completed"] and not quest_progress.get("rewarded"):
                 print(paint(f"  💡 Вернитесь к NPC за наградой!", COLOR_YELLOW))
 
