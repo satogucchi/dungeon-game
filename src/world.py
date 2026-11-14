@@ -73,8 +73,8 @@ def create_items_db():
             "type": "consumable",
             "heal_amount": 30,
             "description": "Восстанавливает 30 HP",
-            "price": 15,
-            "sell_price": 5
+            "price": 12,
+            "sell_price": 4
         },
         "кость": {
             "type": "junk",
@@ -181,8 +181,8 @@ def create_monsters(difficulty="normal"):
             "name": "Пещерный тролль",
             "hp": 80,
             "max_hp": 80,
-            "attack": 14,
-            "experience": 80,
+            "attack": 13,
+            "experience": 90,
             "emoji": "🧌",
             "is_boss": True,
             "loot": [
@@ -196,7 +196,7 @@ def create_monsters(difficulty="normal"):
             "hp": 120,
             "max_hp": 120,
             "attack": 18,
-            "experience": 150,
+            "experience": 180,
             "emoji": "☠️",
             "is_boss": True,
             "is_final": True,
@@ -212,7 +212,7 @@ def create_monsters(difficulty="normal"):
     if difficulty == "easy":
         hp_mult, atk_mult, exp_mult, gold_mult = 0.7, 0.7, 1.0, 1.2
     elif difficulty == "nightmare":
-        hp_mult, atk_mult, exp_mult, gold_mult = 1.5, 1.4, 1.3, 1.5
+        hp_mult, atk_mult, exp_mult, gold_mult = 1.5, 1.3, 1.3, 1.5
     else:
         return monsters
 

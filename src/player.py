@@ -137,9 +137,9 @@ def rest(player, room, monsters, items_db):
 
     print("\n😴 Вы присели отдохнуть...")
 
-    if random_chance(30):
+    if random_chance(35):
         print(paint("⚠️ Вас кто-то потревожил!", COLOR_RED))
-        damage = random_damage(3, 7)
+        damage = random_damage(5, 10)
 
         armor_bonus = 0
         if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
@@ -162,7 +162,7 @@ def rest(player, room, monsters, items_db):
 
         return False
 
-    heal_amount = random_damage(15, 25)
+    heal_amount = random_damage(10, 20)
     old_hp = player["hp"]
     player["hp"] = min(player["hp"] + heal_amount, player["max_hp"])
     healed = player["hp"] - old_hp
