@@ -237,7 +237,7 @@ def create_rooms():
             "exits": {"north": "tunnel"},
             "items": ["факел"],
             "monster": None,
-            "npc": None,
+            "npc": "guard",
             "secret_exit": {"east": "secret_chamber"}
         },
         "tunnel": {
@@ -366,6 +366,19 @@ def create_npcs():
                     "dialogue_complete": "Отличная паутина! Теперь плащ переживёт ещё зиму. Держи плату."
                 }
             }
+        },
+                "guard": {
+            "name": "Стражник Бран",
+            "emoji": "💂",
+            "dialogue": "Я охранял эти земли ещё до того, как подземелье поглотила тьма. Спрашивай — подскажу.",
+            "hints": [
+                "Торговец скупает даже хлам: кости, паутину, факелы. Не таскай мусор просто так.",
+                "Чуешь сквозняк в комнате — используй 'search': в подземелье есть тайные проходы.",
+                "Ключ от Тронного зала лежит у Тёмного озера на юге паучьего гнезда. Но рядом логово тролля — без брони не суйся.",
+                "Против Короля Скелетов твоя защита важнее меча. Собери броню и кольцо, прежде чем идти на север.",
+                "Зелье в бою стоит хода: монстр ударит, пока ты пьёшь. Лечись заранее или отдыхай в пустых комнатах.",
+                "Это всё, что я знаю. Да хранит тебя свет, герой."
+            ]
         }
     }
     return npcs
@@ -410,6 +423,8 @@ def load_game():
         save_data["player"]["difficulty"] = "normal"
     if "quests" not in save_data["player"]:
         save_data["player"]["quests"] = {}
+    if "hints_seen" not in save_data["player"]:
+        save_data["player"]["hints_seen"] = {}
 
     # Миграция комнат
     for room_key in save_data["rooms"]:
@@ -645,6 +660,14 @@ def talk_to_npc(npc_key, player, npcs):
 
     npc = npcs[npc_key]
     print("\n" + paint(f"{npc['emoji']} {npc['name']}: \"{npc['dialogue']}\"", COLOR_MAGENTA))
+    
+    if "hints" in npc:
+        seen = player.setdefault("hints_seen", {}).get(npc_key, 0)
+        hints = npc["hints"]
+        hint = hints[seen] if seen < len(hints) else hints[-1]
+        print(paint(f"   💡 Подсказка: {hint}", COLOR_CYAN))
+        if seen < len(hints) - 1:
+            player["hints_seen"][npc_key] = seen + 1
 
     if "quests" in npc:
         for quest_id, quest_data in npc["quests"].items():
