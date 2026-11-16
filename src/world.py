@@ -254,7 +254,8 @@ def create_rooms():
             "exits": {"west": "tunnel", "north": "bone_crypt", "south": "dark_lake"},
             "items": [],
             "monster": "slime",
-            "npc": None
+            "npc": None,
+            "trap": {"name": "паутинная ловушка", "damage": 6, "triggered": False, "disarmed": False}
         },
         "goblin_camp": {
             "name": "Лагерь гоблинов",
@@ -270,7 +271,8 @@ def create_rooms():
             "exits": {"south": "spider_nest", "north": "throne_room"},
             "items": [],
             "monster": "skeleton",
-            "npc": None
+            "npc": None,
+            "trap": {"name": "паутинная ловушка", "damage": 6, "triggered": False, "disarmed": False}
         },
         "merchant_room": {
             "name": "Лавка торговца",
@@ -320,7 +322,8 @@ def create_rooms():
             "exits": {"west": "armory"},
             "items": ["серебряный кинжал", "золотая корона"],
             "monster": None,
-            "npc": None
+            "npc": None,
+            "trap": {"name": "паутинная ловушка", "damage": 6, "triggered": False, "disarmed": False}
         },
         "troll_lair": {
             "name": "Логово тролля",
@@ -435,7 +438,7 @@ def load_game():
         if "secret_exit" not in save_data["rooms"][room_key]:
             save_data["rooms"][room_key]["secret_exit"] = None
 
-    # Добавляем новые комнаты и новые выходы из старых комнат
+    # Добавляем новые комнаты, выходы и ловушки из старых комнат
     new_rooms = create_rooms()
     for room_key, room_data in new_rooms.items():
         if room_key not in save_data["rooms"]:
@@ -444,6 +447,8 @@ def load_game():
             for direction, target in room_data["exits"].items():
                 if direction not in save_data["rooms"][room_key]["exits"]:
                     save_data["rooms"][room_key]["exits"][direction] = target
+            if "trap" not in save_data["rooms"][room_key] and "trap" in room_data:
+                save_data["rooms"][room_key]["trap"] = room_data["trap"]
 
     # Миграция на версию 2: финальный босс в Тронном зале (только для старых сейвов)
     if save_data.get("save_version", 1) < 2:
@@ -463,6 +468,12 @@ def look(room, monsters, npcs, player):
     if room.get("locked"):
         print("\n" + paint("🔒 Эта комната заперта! Нужен ключ.", COLOR_RED))
 
+    trap = room.get("trap")
+    if trap and not trap.get("triggered") and not trap.get("disarmed"):
+        print(paint(f"⚠️ Вы замечаете ловушку: {trap['name']}. Сработает при попытке уйти! 'search' может обезвредить её.", COLOR_YELLOW))
+    elif trap and trap.get("disarmed"):
+        print(paint(f"🛠️ Ловушка '{trap['name']}' обезврежена.", COLOR_GREEN))
+    
     if room["monster"]:
         monster = monsters[room["monster"]]
         if monster.get("is_final"):
@@ -503,10 +514,22 @@ def look(room, monsters, npcs, player):
         print(paint("   Используйте 'use зелье здоровья' или 'rest' для восстановления.", COLOR_RED))
 
 
-def search_room(room, player):
-    """Искать секреты в комнате."""
+def search_room(room, player, items_db):
+    """Искать секреты и ловушки в комнате."""
     print("\n🔍 Вы внимательно осматриваете комнату...")
 
+    # Сначала проверяем ловушку
+    trap = room.get("trap")
+    if trap and not trap.get("triggered") and not trap.get("disarmed"):
+        if random.randint(1, 100) <= 70:
+            trap["disarmed"] = True
+            print("\n" + paint(f"🛠️ Вы нашли и обезвредили ловушку: {trap['name']}!", COLOR_BOLD + COLOR_GREEN))
+            return True
+        else:
+            print(paint("⚠️ Осторожно! Ловушка сработала прямо в ваших руках!", COLOR_RED))
+            return trigger_trap(room, player, items_db)
+
+    # Потом — секретные проходы (старая логика)
     if room.get("secret_exit") and not room.get("secret_found"):
         room["secret_found"] = True
         secret_dir = list(room["secret_exit"].keys())[0]
@@ -526,6 +549,32 @@ def search_room(room, player):
         ]
         print(f"   🌫️ {random.choice(messages)}")
         return False
+
+def trigger_trap(room, player, items_db):
+    """Ловушка срабатывает при попытке уйти из комнаты. Возвращает 'dead' при гибели."""
+    trap = room.get("trap")
+    if not trap or trap.get("triggered") or trap.get("disarmed"):
+        return None
+
+    trap["triggered"] = True
+
+    armor_bonus = 0
+    if player["equipment"]["armor"] and player["equipment"]["armor"] in items_db:
+        armor_bonus = items_db[player["equipment"]["armor"]]["defense_bonus"]
+    total_defense = player["defense"] + armor_bonus
+
+    damage = max(1, trap["damage"] - total_defense)
+    player["hp"] -= damage
+
+    print("\n" + paint(f"💥 ЛОВУШКА! {trap['name'].capitalize()} сработала, когда вы пошли к выходу!", COLOR_BOLD + COLOR_RED))
+    if total_defense > 0 and trap["damage"] - damage > 0:
+        print(paint(f"   🛡️ Защита поглотила {trap['damage'] - damage} урона!", COLOR_BLUE))
+    print(paint(f"   💥 Вы получили {damage} урона!", COLOR_RED))
+    print(paint(f"   ❤️ HP: {max(0, player['hp'])}/{player['max_hp']}", COLOR_RED))
+
+    if player["hp"] <= 0:
+        return "dead"
+    return None
 
 
 def take(item_name, player, room):
@@ -626,10 +675,15 @@ def trigger_random_event(player):
     return None
 
 
-def move(current_room_name, direction, rooms, monsters, player):
+def move(current_room_name, direction, rooms, monsters, player, items_db):
     """Переместиться в другую комнату."""
     current_room = rooms[current_room_name]
     if direction in current_room["exits"]:
+        # НОВОЕ: ловушка текущей комнаты срабатывает при попытке уйти
+        trap_result = trigger_trap(current_room, player, items_db)
+        if trap_result == "dead":
+            return "dead"
+
         new_room_name = current_room["exits"][direction]
         new_room = rooms[new_room_name]
 

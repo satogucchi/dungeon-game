@@ -7,6 +7,8 @@ from src.utils import (
 )
 from src.player import check_level_up, experience_to_next_level
 
+from src.world import trigger_trap
+
 
 def drop_loot(monster, player):
     """Выдать лут с монстра."""
@@ -152,11 +154,17 @@ def flee(player, room, rooms, monsters, items_db, current_room_name):
         print(paint("✅ Побег успешен!", COLOR_GREEN))
 
         exits = [d for d in room["exits"].keys()
-                if not rooms[room["exits"][d]].get("locked")]
+                 if not rooms[room["exits"][d]].get("locked")]
         if exits:
             escape_direction = random.choice(exits)
             new_room_name = room["exits"][escape_direction]
             print(f"   Вы убегаете в направлении: {escape_direction}")
+
+            # НОВОЕ: ловушка срабатывает при побеге из комнаты
+            trap_result = trigger_trap(room, player, items_db)
+            if trap_result == "dead":
+                return "dead"
+
             return new_room_name
         else:
             print("   ❌ Но вам некуда бежать! Вы заперты.")

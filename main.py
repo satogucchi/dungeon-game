@@ -34,7 +34,7 @@ def show_help():
     print("\n  🚶 ПЕРЕМЕЩЕНИЕ:")
     print("    look          — осмотреться")
     print("    go <напр>     — идти (north/south/east/west)")
-    print("    search        — искать секреты в комнате")
+    print("    search        — искать секреты и ловушки")
 
     print("\n  🎒 ПРЕДМЕТЫ:")
     print("    take <предмет> — подобрать предмет")
@@ -63,8 +63,7 @@ def show_help():
     print("    clear / cls   — очистить экран")
     print("    save          — сохранить игру")
     print("    quit          — выйти из игры")
-    print("=" * 30)
-
+    print("=" * 30) 
 
 def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
     """Основной игровой цикл."""
@@ -76,10 +75,10 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         if command == "look":
             look(rooms[current_room_name], monsters, npcs, player)
         elif command == "search":
-            search_room(rooms[current_room_name], player)
+            search_room(rooms[current_room_name], player, items_db)
         elif command.startswith("go "):
             direction = command[3:].strip()
-            result = move(current_room_name, direction, rooms, monsters, player)
+            result = move(current_room_name, direction, rooms, monsters, player, items_db)
 
             if result == "dead":
                 show_death_stats(player)
