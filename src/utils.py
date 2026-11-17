@@ -110,3 +110,58 @@ def show_highscores():
         diff = difficulty_name(entry.get("difficulty", "normal"))
         print(f"     Уровень {entry['level']}, убийств: {entry['kills']}, "
               f"золото: {entry['gold']}, сложность: {diff}")
+
+def create_achievements():
+    """База данных достижений."""
+    return {
+        "first_blood": {"emoji": "🩸", "name": "Первая кровь", "description": "Убейте первого монстра"},
+        "monster_slayer": {"emoji": "⚔️", "name": "Охотник на монстров", "description": "Убейте 15 монстров"},
+        "rich": {"emoji": "💰", "name": "Богач", "description": "Накопите 200 золота одновременно"},
+        "veteran": {"emoji": "🎖️", "name": "Ветеран", "description": "Достигните 5 уровня"},
+        "victor": {"emoji": "👑", "name": "Победитель подземелья", "description": "Повергните Короля Скелетов"},
+        "nightmare_victor": {"emoji": "🔥", "name": "Победитель Кошмара", "description": "Пройдите игру на сложности 'Кошмар'"},
+        "secret_finder": {"emoji": "🕵️", "name": "Искатель тайн", "description": "Найдите 2 секретных прохода"},
+        "trap_master": {"emoji": "🛠️", "name": "Мастер ловушек", "description": "Обезвредьте 2 ловушки"},
+        "quest_hero": {"emoji": "📜", "name": "Герой квестов", "description": "Выполните 2 квеста"},
+        "collector": {"emoji": "🎒", "name": "Коллекционер", "description": "Держите 8 предметов в инвентаре одновременно"},
+    }
+
+
+def check_achievements(player):
+    """Проверить достижения и показать вновь открытые."""
+    achievements = create_achievements()
+    rewarded_quests = sum(1 for q in player["quests"].values() if q.get("rewarded"))
+
+    conditions = {
+        "first_blood": player["kills"] >= 1,
+        "monster_slayer": player["kills"] >= 15,
+        "rich": player["gold"] >= 200,
+        "veteran": player["level"] >= 5,
+        "victor": player["victory"],
+        "nightmare_victor": player["victory"] and player.get("difficulty") == "nightmare",
+        "secret_finder": player.get("secrets_found", 0) >= 2,
+        "trap_master": player.get("traps_disarmed", 0) >= 2,
+        "quest_hero": rewarded_quests >= 2,
+        "collector": len(player["inventory"]) >= 8,
+    }
+
+    for ach_id, unlocked in conditions.items():
+        if unlocked and ach_id not in player["achievements"]:
+            player["achievements"].append(ach_id)
+            ach = achievements[ach_id]
+            print("\n" + paint("🏅" * 15, COLOR_YELLOW))
+            print(paint(f"   ДОСТИЖЕНИЕ ОТКРЫТО: {ach['emoji']} {ach['name']}!", COLOR_BOLD + COLOR_YELLOW))
+            print(paint(f"   {ach['description']}", COLOR_YELLOW))
+            print(paint("🏅" * 15, COLOR_YELLOW))
+
+
+def show_achievements(player):
+    """Показать все достижения."""
+    achievements = create_achievements()
+    print("\n" + paint("🏅 === ДОСТИЖЕНИЯ ===", COLOR_BOLD + COLOR_YELLOW))
+    for ach_id, ach in achievements.items():
+        if ach_id in player["achievements"]:
+            print(paint(f"  ✅ {ach['emoji']} {ach['name']} — {ach['description']}", COLOR_GREEN))
+        else:
+            print(f"  🔒 {ach['emoji']} {ach['name']} — {ach['description']}")
+    print(f"\n  Открыто: {len(player['achievements'])}/{len(achievements)}")

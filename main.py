@@ -1,7 +1,11 @@
 """Точка входа игры «Подземелье»."""
 import os
 
-from src.utils import clear_screen, choose_difficulty, show_highscores, paint, COLOR_BOLD, COLOR_CYAN, COLOR_RED
+from src.utils import (
+    clear_screen, choose_difficulty, show_highscores,
+    check_achievements, show_achievements,
+    paint, COLOR_BOLD, COLOR_CYAN, COLOR_RED
+)
 from src.player import (
     create_player, use_item, equip_item, rest,
     show_inventory, show_stats, show_death_stats,
@@ -58,6 +62,7 @@ def show_help():
     print("\n  📊 ИНФОРМАЦИЯ:")
     print("    stats         — показать характеристики")
     print("    help          — показать эту справку")
+    print("    achievements — показать достижения")
 
     print("\n  💾 СИСТЕМА:")
     print("    clear / cls   — очистить экран")
@@ -168,6 +173,8 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
             show_inventory(player)
         elif command == "stats":
             show_stats(player, items_db)
+        elif command == "achievements":
+            show_achievements(player)
         elif command in ("clear", "cls"):
             clear_screen()
         elif command == "save":
@@ -182,6 +189,7 @@ def game_loop(player, rooms, monsters, items_db, npcs, current_room_name):
         else:
             print(paint("❓ Неизвестная команда. Введите 'help' для списка команд.", COLOR_RED))
 
+        check_achievements(player)
 
 def main():
     """Главный цикл игры."""

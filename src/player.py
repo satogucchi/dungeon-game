@@ -36,7 +36,10 @@ def create_player(difficulty="normal"):
             "armor": None
         },
         "quests": {},
-        "hints_seen": {} 
+        "hints_seen": {},
+        "achievements": [],
+        "secrets_found": 0,
+        "traps_disarmed": 0
     }
 
     print(f"\n🎉 Герой {player['name']} создан!")

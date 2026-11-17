@@ -428,6 +428,12 @@ def load_game():
         save_data["player"]["quests"] = {}
     if "hints_seen" not in save_data["player"]:
         save_data["player"]["hints_seen"] = {}
+    if "achievements" not in save_data["player"]:
+        save_data["player"]["achievements"] = []
+    if "secrets_found" not in save_data["player"]:
+        save_data["player"]["secrets_found"] = 0
+    if "traps_disarmed" not in save_data["player"]:
+        save_data["player"]["traps_disarmed"] = 0
 
     # Миграция комнат
     for room_key in save_data["rooms"]:
@@ -523,15 +529,17 @@ def search_room(room, player, items_db):
     if trap and not trap.get("triggered") and not trap.get("disarmed"):
         if random.randint(1, 100) <= 70:
             trap["disarmed"] = True
+            player["traps_disarmed"] = player.get("traps_disarmed", 0) + 1  # НОВОЕ
             print("\n" + paint(f"🛠️ Вы нашли и обезвредили ловушку: {trap['name']}!", COLOR_BOLD + COLOR_GREEN))
             return True
         else:
             print(paint("⚠️ Осторожно! Ловушка сработала прямо в ваших руках!", COLOR_RED))
             return trigger_trap(room, player, items_db)
 
-    # Потом — секретные проходы (старая логика)
+    # Потом — секретные проходы
     if room.get("secret_exit") and not room.get("secret_found"):
         room["secret_found"] = True
+        player["secrets_found"] = player.get("secrets_found", 0) + 1  # НОВОЕ
         secret_dir = list(room["secret_exit"].keys())[0]
         secret_room = room["secret_exit"][secret_dir]
 
